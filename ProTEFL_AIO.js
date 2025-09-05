@@ -23,14 +23,21 @@ function main() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ProTEFL Utility")
-    // --- Safe options ---
-    .addItem("Apply Styles", "applyAllStylingWithConfirm")
-    .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
-    .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
-    .addSeparator()
-    // --- Risky options ---
-    .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
-    .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
+      // --- Safe options ---
+      .addItem("Apply Styles", "applyAllStylingWithConfirm")
+      .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
+      .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
+      .addSeparator()
+      // --- Risky options ---
+      .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
+      .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
+      // --- Experimental menu ---
+      .addSubMenu(
+        SpreadsheetApp.getUi()
+          .createMenu("Custom View")
+          .addItem("Reschedule Participants (Toggle)", "toggleRescheduleParticipantsView")
+      )
+      // --- Experimental menu ---
     .addToUi();
 }
 
@@ -151,7 +158,57 @@ function setupAutoCounterTrigger() {
 
 // EXPERIMENTAL FEATURE
 
+// ======================
+// EXPERIMENTAL: CUSTOM VIEW
+// ======================
+/**
+ * Toggles the "Reschedule Participants" view in Form responses 1.
+ * Hides all columns except: A, C, D, E, R, V-Y, AE-AH, AL, AM, AN, AO.
+ * If already in custom view, restores all columns.
+ */
+function toggleRescheduleParticipantsView() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Form responses 1");
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert("Sheet 'Form responses 1' not found.");
+    return;
+  }
+
+  // Columns to keep visible
+  var keepCols = ["A","C","D","E","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO"];
+  var keepIndexes = keepCols.map(letterToColumn_); // convert to numbers
+
+  var lastCol = sheet.getLastColumn();
+  var allCols = Array.from({length: lastCol}, (_, i) => i+1);
+
+  // Detect if we are in "custom view" (first hidden col = 2 for example)
+  var isCustomView = sheet.isColumnHiddenByUser(2);
+
+  if (!isCustomView) {
+    // Hide all except keepIndexes
+    allCols.forEach(function(col) {
+      if (!keepIndexes.includes(col)) {
+        sheet.hideColumns(col);
+      }
+    });
+  } else {
+    // Restore everything
+    sheet.showColumns(1, lastCol);
+  }
+}
+
+/**
+ * Convert column letter (e.g. "AA") to column index number.
+ */
+function letterToColumn_(letter) {
+  var col = 0;
+  for (var i = 0; i < letter.length; i++) {
+    col = col * 26 + (letter.charCodeAt(i) - "A".charCodeAt(0) + 1);
+  }
+  return col;
+}
 // EXPERIMENTAL FEATURE
+
 
 // These are used to automatically populate the headers/titles inside each sheet.
 /**
