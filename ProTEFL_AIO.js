@@ -9,115 +9,82 @@ function main() {
   protectOriginalScheduleColumn(); // Lock the "Original Schedule" column against edits
   applyAllStyling();               // Apply consistent header fonts, colors, widths, etc.
   applyAllFormulas();              // Insert and/or fill down configured formulas
-  // syncRescheduleCounts();       // (Optional) Recalculate the "Reschedule Count" column
+  setupDefaultViewTrigger();       // Ensure Default View trigger is installed
 }
 
 // ======================
 // MENU SETUP
 // ======================
-
-/**
- * Creates the custom menu bar "ProTEFL Utility" in the spreadsheet UI.
- * This runs automatically whenever the spreadsheet is opened.
- */
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ProTEFL Utility")
-      // --- Safe options ---
+      // Safe options
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
       .addSeparator()
-      // --- Risky options ---
+      // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
       .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
       .addSeparator()
-      // --- Experimental menu ---
+      // Custom views
       .addSubMenu(
         SpreadsheetApp.getUi()
           .createMenu("Custom View")
-          .addItem("Default View (Toggle)", "toggleDefaultView")
-          .addItem("Reschedule Participants (Toggle)", "toggleRescheduleParticipantsView")
-          .addItem("Verify Student ID (Toggle)", "toggleVerifyStudentIDView")
+          .addItem("Default View", "toggleDefaultView")
+          .addItem("Reschedule Participants", "toggleRescheduleParticipantsView")
+          .addItem("Verify Student ID", "toggleVerifyStudentIDView")
       )
     .addToUi();
 
-  // Auto-switch to Default View when opened
-  toggleDefaultView(true);
+  toggleDefaultView(true); // Open Default View on workbook open
 }
 
 // ======================
-// MENU ACTION WRAPPERS (with confirmation dialogs)
+// MENU ACTION WRAPPERS
 // ======================
-
 function applyAllStylingWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert(
-    "Apply Styles",
-    "Do you want to re-apply all custom styles to your registration sheets? " +
-    "This will reset header colors, column banding, and other visual formatting. Proceed?",
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (resp == ui.Button.OK) {
-    applyAllStyling();
-    ui.alert("Styling applied!");
+  if (ui.alert("Apply Styles",
+    "Do you want to re-apply all custom styles to your registration sheets? This will reset headers, banding, and formatting. Proceed?",
+    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
+      applyAllStyling();
   }
 }
 
 function applyAllFormulasWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert(
-    "Apply All Formulas (Danger Zone)",
-    "Have you copied/imported the DATABASEMAHASISWA sheet into this workbook? " +
-    "Applying ALL formulas may cause errors if lookup sheets are missing. Proceed?",
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (resp == ui.Button.OK) {
-    applyAllFormulas();
-    ui.alert("All formulas applied!");
+  if (ui.alert("Apply All Formulas (Danger Zone)",
+    "Have you copied DATABASEMAHASISWA into this workbook? Applying all formulas may error if sheets are missing. Proceed?",
+    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
+      applyAllFormulas();
   }
 }
 
 function runMainWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert(
-    "Initialize Sheet (Danger Zone)",
-    "This will initialize/reinitialize your registration workbook " +
-    "(create sheets, headers, values, styles, etc). " +
-    "Have you copied the DATABASEMAHASISWA sheet into this workbook? " +
-    "This process is NOT reversible. Proceed?",
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (resp == ui.Button.OK) {
-    main();
-    ui.alert("Sheet initialization complete!");
+  if (ui.alert("Initialize Sheet (Danger Zone)",
+    "This will initialize/reinitialize your registration workbook. NOT reversible. Proceed?",
+    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
+      main();
   }
 }
 
 function setupAutoCounterTriggerWithAlert() {
   var ui = SpreadsheetApp.getUi();
-  var resp = ui.alert(
-    "Set Up Trigger",
-    "This will create or replace the installable onEdit trigger " +
-    "for the auto counter/logging script in this spreadsheet.\n\nProceed?",
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (resp == ui.Button.OK) {
-    setupAutoCounterTrigger();
-    ui.alert("AutoCounter Trigger is now set up! (Previous trigger, if any, was replaced.)");
+  if (ui.alert("Set Up Trigger",
+    "This will create/replace the installable onEdit trigger for auto counter logging. Proceed?",
+    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
+      setupAutoCounterTrigger();
   }
 }
 
 // ======================
 // TRIGGER MANAGEMENT
 // ======================
-
 function setupAutoCounterTrigger() {
-  var triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(function(trigger) {
-    if (trigger.getHandlerFunction() === "onEditLogReschedule") {
-      ScriptApp.deleteTrigger(trigger);
-    }
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === "onEditLogReschedule") ScriptApp.deleteTrigger(trigger);
   });
   ScriptApp.newTrigger("onEditLogReschedule")
     .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
@@ -125,169 +92,172 @@ function setupAutoCounterTrigger() {
     .create();
 }
 
-// ======================
-// EXPERIMENTAL: CUSTOM VIEWS
-// ======================
+function setupDefaultViewTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var exists = triggers.some(t => t.getHandlerFunction() === "onOpenDefaultView");
+  if (!exists) {
+    ScriptApp.newTrigger("onOpenDefaultView")
+      .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+      .onOpen()
+      .create();
+  }
+}
 
-/**
- * Toggles the "Default View".
- * Shows only essential columns for daily operations.
- */
-function toggleDefaultView(forceOn) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+function onOpenDefaultView() {
+  toggleDefaultView(true);
+}
+
+// ======================
+// CUSTOM VIEWS (Optimized, Reliable Toggle)
+// ======================
+function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return;
 
+  var props = PropertiesService.getDocumentProperties();
+  var currentView = props.getProperty("currentView") || "";
+  var keepIndexes = keepCols.map(letterToColumn_);
+  var lastCol = sheet.getLastColumn();
+
+  var activateView = forceOn || currentView !== label;
+
+  // Show all first
+  sheet.showColumns(1, lastCol);
+
+  if (activateView) {
+    // Hide columns not in keepCols
+    var rangesToHide = [];
+    var start = null;
+    for (var col = 1; col <= lastCol; col++) {
+      if (!keepIndexes.includes(col)) {
+        if (start === null) start = col;
+      } else {
+        if (start !== null) {
+          rangesToHide.push([start, col - start]);
+          start = null;
+        }
+      }
+    }
+    if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
+    rangesToHide.forEach(r => sheet.hideColumns(r[0], r[1]));
+
+    if (sidebarFn) sidebarFn();
+    props.setProperty("currentView", label);
+  } else {
+    // Deactivating view → show all
+    props.setProperty("currentView", "");
+  }
+
+  // Install Default View trigger if applicable
+  if (label === "Default") setupDefaultViewTrigger();
+}
+
+// === Individual View Functions ===
+function toggleDefaultView(forceOn) {
   var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX"];
-  var keepIndexes = keepCols.map(letterToColumn_);
-  var lastCol = sheet.getLastColumn();
-  var isCustomView = sheet.isColumnHiddenByUser(2); // test column B
-
-  if (isCustomView && !forceOn) {
-    sheet.showColumns(1, lastCol);
-    SpreadsheetApp.getUi().alert("Custom View: Default is now OFF.");
-  } else {
-    for (var col = 1; col <= lastCol; col++) {
-      if (!keepIndexes.includes(col)) sheet.hideColumns(col);
-    }
-    if (!forceOn) SpreadsheetApp.getUi().alert("Custom View: Default is now ON.");
-    showDefaultSidebar();
-  }
+  applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
 }
 
-/**
- * Toggles the "Reschedule Participants" view.
- */
 function toggleRescheduleParticipantsView() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  if (!sheet) return SpreadsheetApp.getUi().alert("Sheet 'Form responses 1' not found.");
-
-  var ui = SpreadsheetApp.getUi();
   var keepCols = ["A","C","D","E","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO"];
-  var keepIndexes = keepCols.map(letterToColumn_);
-  var lastCol = sheet.getLastColumn();
-  var isCustomView = sheet.isColumnHiddenByUser(2); // check column B
-
-  if (isCustomView) {
-    sheet.showColumns(1, lastCol);
-    ui.alert("Custom View: Reschedule Participants is now OFF.");
-  } else {
-    for (var col = 1; col <= lastCol; col++) {
-      if (!keepIndexes.includes(col)) sheet.hideColumns(col);
-    }
-    ui.alert("Custom View: Reschedule Participants is now ON.");
-    showRescheduleSidebar();
-  }
+  applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
-/**
- * Toggles the "Verify Student ID" view.
- */
 function toggleVerifyStudentIDView() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  if (!sheet) return SpreadsheetApp.getUi().alert("Sheet 'Form responses 1' not found.");
-
-  var ui = SpreadsheetApp.getUi();
   var keepCols = ["C","D","E","AZ","BA","BB","BC"];
-  var keepIndexes = keepCols.map(letterToColumn_);
-  var lastCol = sheet.getLastColumn();
-  var isCustomView = sheet.isColumnHiddenByUser(1); // check column A
-
-  if (isCustomView) {
-    sheet.showColumns(1, lastCol);
-    ui.alert("Custom View: Verify Student ID is now OFF.");
-  } else {
-    for (var col = 1; col <= lastCol; col++) {
-      if (!keepIndexes.includes(col)) sheet.hideColumns(col);
-    }
-    ui.alert("Custom View: Verify Student ID is now ON.");
-    showVerifyStudentIDSidebar();
-  }
+  applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
 }
 
-/**
- * Convert column letter (e.g. "AA") to column index number.
- */
+// ======================
+// UTILITY
+// ======================
 function letterToColumn_(letter) {
   var col = 0;
-  for (var i = 0; i < letter.length; i++) {
-    col = col * 26 + (letter.charCodeAt(i) - "A".charCodeAt(0) + 1);
-  }
+  for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
   return col;
 }
 
 // ======================
-// SIDEBARS
+// SIDEBARS (Optimized)
 // ======================
 
 function showDefaultSidebar() {
-  var html = HtmlService.createHtmlOutput(
-    '<div style="font-family:Arial, sans-serif; padding:16px; line-height:1.6;">' +
-      '<h2 style="margin-top:0;">ProTEFL MDMA</h2>' +
-      '<p><i>"ProTEFL on Speed ⚡"</i></p>' +
-      '<p>Welcome to <b>ProTEFL Monthly Data Management Administration</b>. ' +
-      'This workbook handles everything from registration to scoring, ' +
-      'so you don’t have to juggle ten different files (you’re welcome).</p>' +
-      '<h3>What this workbook covers:</h3>' +
-      '<ul>' +
-        '<li><b>Registration</b>: via Google Forms or manual entry.</li>' +
-        '<li><b>Data management</b>: rescheduling, student ID verification, ' +
-        'test count checks (with the old SIAKAD), and test group plotting (with manual override).</li>' +
-        '<li><b>Scoring</b>: attendance verification, score entry, uploads, ' +
-        'certificate formatting, and the now mostly-obsolete SISTER formatting.</li>' +
-      '</ul>' +
-      '<h3>About this Default View:</h3>' +
-      '<p>This is the <b>home base</b>. Only essential columns are shown ' +
-      '(IDs, names, statuses, and admin flags). ' +
-      'It’s the clean slate you land on every time you open the workbook. ' +
-      'From here, switch to other custom views when you need to focus on specific tasks.</p>' +
-      '<p style="color:#555; font-size:12px; margin-top:12px;">Reminder: speed is great, ' +
-      'but accurate data keeps the complaints away.</p>' +
-    '</div>'
-  ).setTitle("ProTEFL MDMA");
-  SpreadsheetApp.getUi().showSidebar(html);
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;color:#222;">
+      <h2 style="margin-top:0;">Welcome to ProTEFL MDMA</h2>
+      <p><i>(ProTEFL Monthly Data Management Admin)</i></p>
+      <p>It's ProTEFL but on Speed ⚡</p>
+      <p>This workbook handles everything:</p>
+      <ul>
+        <li><b>Registration</b>: from Google Forms / manual entry</li>
+        <li><b>Data management</b>: reschedule, payment status, student ID verification, manual test count checking (via Admin Old Siakad), automatic & override test group plotting, contact creation (VCF), autogenerated attendance, test ID lists</li>
+        <li><b>Scoring</b>: attendance verification, score checking, reschedule offering, autogenerated score report format, autogenerated certificate data format, autogenerated SISTER upload format (obsolete)</li>
+      </ul>
+
+      <h3>About this Default View:</h3>
+      <p>
+        This is the <b>home base</b>. Only essential columns are shown 
+        (IDs, names, key status checks, and admin flags).  
+        It’s the clean slate you land on every time you open the workbook.  
+        From here, jump into other custom views if you need to 
+        focus on specific tasks like rescheduling, ID verification, attendance and score verification, or others.
+      </p>
+
+      <p>You can open other views by checking <b>ProTEFL Utility &gt; Custom View</b> on the menu bar above.</p>
+
+      <p style="color:#555; font-size:12px; margin-top:12px;">
+        Reminder: speed is great, but accurate data keeps the complaints away.
+      </p>
+    </div>
+  `;
+
+  SpreadsheetApp.getUi()
+    .showSidebar(HtmlService.createHtmlOutput(html).setTitle("ProTEFL MDMA"));
 }
 
 function showRescheduleSidebar() {
-  var html = HtmlService.createHtmlOutput(
-    '<div style="font-family:Arial, sans-serif; padding:12px; line-height:1.5">' +
-      '<h2 style="font-size:16px; margin-bottom:10px;">📋 Reschedule Guide</h2>' +
-      '<ol style="padding-left:18px;">' +
-        '<li>Check participant’s <b>Name</b> in column <b>E</b>.</li>' +
-        '<li>Verify their <b>Original Schedule</b> in column <b>R</b> (important if they registered multiple times).</li>' +
-        '<li>In column <b>V</b>, set dropdown to <b>Yes</b>.</li>' +
-        '<li>Search for the new schedule date in <b>00. MASTER-DATA</b>.</li>' +
-        '<li>Copy the new schedule into column <b>W</b>.</li>' +
-        '<li>Mark <b>Confirmed</b> in column <b>AG</b>.</li>' +
-        '<li>Copy the WhatsApp message from column <b>AH</b> and send to the participant.</li>' +
-      '</ol>' +
-      '<p style="margin-top:10px; font-size:12px; color:#666;">This is a placeholder guide. Update as needed.</p>' +
-    '</div>'
-  ).setTitle("Reschedule Participants");
-  SpreadsheetApp.getUi().showSidebar(html);
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;color:#222;">
+      <h2 style="margin-top:0;">📋 Reschedule Participants Guide</h2>
+      <p>Here’s a go-to workflow for rescheduling participants:</p>
+      <ol style="padding-left:18px;">
+        <li>Locate the participant’s <b>Name</b> in column <b>E</b>.</li>
+        <li>Verify their <b>Original Schedule</b> in column <b>R</b>. It is crucial if they registered multiple times. In that case, be careful. Make sure you reschedule the correct entry.</li>
+        <li>In column <b>V</b>, set the dropdown to <b>Yes</b> to flag for reschedule. This will revoke their original schedule. They won't have a schedule now. Column AL will now be empty.</li>
+        <li>To assign them new schedule, search for the new schedule date in <b>00. MASTER-DATA</b> in accordance to participant's choosing.</li>
+        <li>Copy the suitable schedule from <b>00. MASTER-DATA</b> into <b>Form responses 1</b> in column <b>W</b>.</li>
+        <li>Mark <b>Confirmed</b> in column <b>AG</b> to lock it in.</li>
+        <li>Copy the WhatsApp message from column <b>AH</b> and send it to the participant. 🚀</li>
+      </ol>
+      <p style="margin-top:12px; font-size:12px; color:#555;">
+        Tip: Accuracy beats speed here — double-check before hitting send! With accoubtability, you have avoided complaint(s) induced headache and hypertension.
+      </p>
+    </div>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Reschedule Participants"));
 }
 
 function showVerifyStudentIDSidebar() {
-  var html = HtmlService.createHtmlOutput(
-    '<div style="font-family:Arial, sans-serif; padding:12px; line-height:1.5">' +
-      '<h2 style="font-size:16px; margin-bottom:10px;">🆔 Verify Student ID Guide</h2>' +
-      '<p>Check student IDs carefully. If the NIM doesn’t match, the score won’t show on SIAKAD. ' +
-      'This check assumes <b>DATABASEMAHASISWA</b> contains correct data.</p>' +
-      '<h3 style="margin-top:12px; font-size:14px;">How to check:</h3>' +
-      '<ol style="padding-left:18px;">' +
-        '<li>Look at column <b>BC</b> (Status):</li>' +
-        '<ul>' +
-          '<li><b>COCOK</b>: OK ✅ – move on.</li>' +
-          '<li><b>CEK NAMA</b>: capitalization issue. Don’t fix it; we already use corrected proper names. ' +
-          'Check <b>06. UPLOADSKOR</b> for tidy versions (say thanks to Windi 😒).</li>' +
-          '<li><b>SALAH NIM</b>: Name in <b>E</b> or <b>BA</b> doesn’t match database name in <b>BB</b>. ' +
-          'Ask for the student ID card and fix NIM in <b>E</b> (NOT BA or BB!).</li>' +
-          '<li><b>#N/A</b>: No match found. Investigate further.</li>' +
-        '</ul>' +
-      '</ol>' +
-      '<p style="margin-top:10px; font-size:12px; color:#666;">Good job 👍</p>' +
-    '</div>'
-  ).setTitle("Verify Student ID");
-  SpreadsheetApp.getUi().showSidebar(html);
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;color:#222;">
+      <h2 style="margin-top:0;">🆔 Verify Student ID Guide</h2>
+      <p>Student ID verification is critical — mismatched IDs mean scores won't appear on SIAKAD. This is achieved with the assumption that entries in <b>DATABASEMAHASISWA</b> has the correct student data.</p>
+      <h3 style="margin-top:12px;">Step-by-step check:</h3>
+      <ol style="padding-left:18px;">
+        <li>Check column <b>BC</b> (Status):</li>
+        <ul>
+          <li><b>COCOK</b>: ✅ Everything matches — move on to the next participant.</li>
+          <li><b>CEK NAMA</b>: Minor capitalization mismatch. No fix needed here; we already use corrected proper names. Reference <b>06. UPLOADSKOR</b> for tidy names (say thanks Windi right now 😒).</li>
+          <li><b>SALAH NIM</b>: Name in column <b>E</b> or <b>BA (duplicates of E)</b> doesn’t match the database (<b> shown in BB</b>). Ask the participant for their ID card and update NIM in <b>E</b> ONLY. Data shown elsewhere are all duplicates of E.</li>
+          <li><b>#N/A</b>: No match found. Investigate and resolve manually. Ask the students for their KTM, write the correct NIM. When issues persist, it means we do not have their data in DATABASEMAHASISWA. Please update it manually based on the data on their KTM. Usually happens for students registering as INTAKE students (course begining on February).</li>
+        </ul>
+      </ol>
+      <p style="margin-top:12px; font-size:12px; color:#555;">
+        Pro tip: Careful checking now saves a flood of complaints later. 👍
+      </p>
+    </div>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Verify Student ID"));
 }
 
 // These are used to automatically populate the headers/titles inside each sheet.
