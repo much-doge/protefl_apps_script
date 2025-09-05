@@ -1,3 +1,25 @@
+/**
+ * =============================================================================
+ * ProTEFL MDMA ⚡ - Google Sheets Admin Scripts
+ * =============================================================================
+ *
+ * Copyright (c) 2025 Nur Eko Windianto (ne.windianto@gmail.com)
+ * All rights reserved.
+ *
+ * You are granted permission to use, copy, and modify this software **for your
+ * personal or organizational use only**. Redistribution or commercial use
+ * without explicit permission from the author is prohibited.
+ *
+ * Author: Nur Eko Windianto
+ * Created: 2025-04-30
+ *
+ * Notes:
+ * - This script is intended for managing ProTEFL registration, scoring, and data.
+ * - Unauthorized redistribution or resale is strictly forbidden.
+ *
+ * =============================================================================
+ */
+
 // main.gs
 /**
  * Main admin orchestrator for ProTEFL registration workbook.
@@ -23,6 +45,9 @@ function onOpen() {
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
       .addSeparator()
+      // Data entry
+      .addItem("Manual Data Entry", "showManualDataEntrySidebar")
+      .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
       .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
@@ -36,9 +61,6 @@ function onOpen() {
           .addItem("Verify Student ID", "toggleVerifyStudentIDView")
           .addItem("Verify Payment", "toggleVerifyPaymentView") 
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
-      .addSeparator()
-      // Data entry
-      .addItem("Manual Data Entry", "showManualDataEntrySidebar")
       )
     .addToUi();
 
@@ -200,12 +222,16 @@ function letterToColumn_(letter) {
 // ======================
 // DATA ENTRY SCRIPT FUNCTION
 // ======================
-function appendManualEntry(email, option) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  if (!sheet) return;
+function addManualEntry(email, option) {
+  if (!email || !option) return "Please fill in all fields.";
 
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  const lastRow = sheet.getLastRow();
   const timestamp = new Date();
+
   sheet.appendRow([timestamp, email, option]);
+
+  return "Entry added successfully!";
 }
 
 // ======================
@@ -218,7 +244,7 @@ function showDefaultSidebar() {
       <h2 style="margin-top:0;">Welcome to ProTEFL MDMA</h2>
       <p><i>(ProTEFL Monthly Data Management Admin)</i></p>
       <p>It's ProTEFL but on Speed ⚡</p>
-      <p>The original admin wants you to know that he has read Discovering statistics using IBM SPSS statistics: and *** and drugs and rock 'n' roll and you should too! If only there is similar book on spreadsheet...</p>
+      <p>The original admin wants you to know that he has read Discovering statistics using IBM SPSS statistics: and *** and ***** and rock 'n' roll and you should too! If only there is similar book on spreadsheet...</p>
       <p>This workbook handles everything:</p>
       <ul>
         <li><b>Registration</b>: from Google Forms / manual entry</li>
@@ -372,36 +398,25 @@ function showVerifyAttendanceSidebar() {
 function showManualDataEntrySidebar() {
   const html = `
     <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;">
-      <h2 style="margin-top:0;">Manual Data Entry</h2>
-      <p>Enter participant info below:</p>
-      <label for="email">Email:</label><br>
-      <input type="email" id="email" style="width:100%;margin-bottom:10px;" required><br>
-
-      <label for="option">Option:</label><br>
-      <select id="option" style="width:100%;margin-bottom:10px;">
-        <option value="ProTEFL SIAKAD UNY (tanpa sertifikat)">ProTEFL SIAKAD UNY (tanpa sertifikat)</option>
-        <option value="ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)">ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)</option>
-      </select><br>
-
-      <button onclick="submitData()" style="width:100%;padding:6px 0;margin-top:6px;">Submit</button>
-
-      <p id="status" style="color:green;margin-top:8px;"></p>
+      <h2>Manual Data Entry</h2>
+      <label>Email:<br><input type="email" id="email" style="width:100%;"></label><br><br>
+      <label>Option:<br>
+        <select id="option" style="width:100%;">
+          <option value="ProTEFL SIAKAD UNY (tanpa sertifikat)">ProTEFL SIAKAD UNY (tanpa sertifikat)</option>
+          <option value="ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)">ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)</option>
+        </select>
+      </label><br><br>
+      <button onclick="submitData()">Submit</button>
+      <p id="status" style="color:green;"></p>
 
       <script>
         function submitData() {
           const email = document.getElementById('email').value;
           const option = document.getElementById('option').value;
-          if(!email) {
-            document.getElementById('status').style.color = 'red';
-            document.getElementById('status').innerText = 'Email is required!';
-            return;
-          }
-          google.script.run.withSuccessHandler(() => {
-            document.getElementById('status').style.color = 'green';
-            document.getElementById('status').innerText = 'Participant added!';
+          google.script.run.withSuccessHandler(msg => {
+            document.getElementById('status').innerText = msg;
             document.getElementById('email').value = '';
-            document.getElementById('option').selectedIndex = 0;
-          }).appendManualEntry(email, option);
+          }).addManualEntry(email, option);
         }
       </script>
     </div>
