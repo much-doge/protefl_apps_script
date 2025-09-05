@@ -4,12 +4,12 @@
  * Run this function to set up or refresh everything.
  */
 function main() {
-    initializeSheets();                 // Creates and populates sheets and templates (setupSheets.gs)
-    setupAllDropdowns();                // Adds dropdowns to columns (setupDropdowns.gs)
-    protectOriginalScheduleColumn();    // Protects the 'Original Schedule' column (autoCounters.gs)
-    applyAllStyling();                  // Applies header and other styling (styling.gs)
-    applyAllFormulas();                 // Applies all relevant formulas (applyFormulas.gs)
-    // Optionally: syncRescheduleCounts(); // Recalculate reschedule count column (autoCounters.gs)
+  initializeSheets();              // Create sheets and populate with initial headers/templates
+  setupAllDropdowns();             // Add dropdown validations to relevant columns
+  protectOriginalScheduleColumn(); // Lock the "Original Schedule" column against edits
+  applyAllStyling();               // Apply consistent header fonts, colors, widths, etc.
+  applyAllFormulas();              // Insert and/or fill down configured formulas
+  // syncRescheduleCounts();       // (Optional) Recalculate the "Reschedule Count" column
 }
 
 // ======================
