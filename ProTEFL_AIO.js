@@ -16,7 +16,6 @@ function main() {
 function onOpen() {
     SpreadsheetApp.getUi()
       .createMenu("ProTEFL Utility")
-      .addItem("Search Test Taker", "showSearchSidebar")
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
@@ -96,45 +95,7 @@ function onOpen() {
     }
 
 // EXPERIMENTAL FEATURE
-/**
- * Show sidebar with dropdown of test takers
- */
-function showSearchSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('SearchTestTaker')
-    .setTitle('Search Test Taker');
-  SpreadsheetApp.getUi().showSidebar(html);
-}
 
-/**
- * Get list of test taker names (AJ) and their Test IDs (AI)
- * Returns array of objects [{name, testId}]
- */
-function showSearchTestTakerSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('SearchTestTaker')
-    .setTitle('Search Test Taker');
-  SpreadsheetApp.getUi().showSidebar(html);
-}
-
-function getTestTakers() {
-  const sheet = SpreadsheetApp.getActive().getSheetByName('Form responses 1');
-  if (!sheet) return [];
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  const numRows = lastRow - 1;
-  const names = sheet.getRange(2, 36, numRows, 1).getValues().map(r => r[0]); // AJ
-  const ids = sheet.getRange(2, 37, numRows, 1).getValues().map(r => r[0]);   // AK
-
-  const result = [];
-  for (let i = 0; i < numRows; i++) {
-    if (names[i]) {
-      result.push({ name: names[i], testId: ids[i] || '' });
-    }
-  }
-
-  return result;
-}
 // EXPERIMENTAL FEATURE
 
 // These are used to automatically populate the headers/titles inside each sheet.
