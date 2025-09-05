@@ -44,6 +44,7 @@ function onOpen() {
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
+      .addItem("Export VCF by Tanggal Tes", "showVCFSidebar")
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
@@ -214,6 +215,46 @@ function letterToColumn_(letter) {
   var col = 0;
   for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
   return col;
+}
+
+function showVCFSidebar() {
+  var html = HtmlService.createHtmlOutputFromFile("VCFSidebar")
+      .setTitle("Export VCF by Tanggal Tes")
+      .setWidth(300);
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+// Get unique BJ values
+function getBJOptions() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  var data = sheet.getDataRange().getValues();
+  var header = data.shift();
+  var bjIndex = header.indexOf("Tanggal tes");
+  if (bjIndex === -1) return [];
+  
+  var bjValues = [...new Set(data.map(row => row[bjIndex]))];
+  return bjValues;
+}
+
+// Export filtered BG as .vcf
+function exportVCF(selection) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  var data = sheet.getDataRange().getValues();
+  var header = data.shift();
+  
+  var bjIndex = header.indexOf("Tanggal tes");
+  var bgIndex = header.indexOf("Grouping VCF");
+  if (bjIndex === -1 || bgIndex === -1) return {success:false, message:"Columns not found"};
+  
+  var filtered = data.filter(row => row[bjIndex] === selection);
+  if (filtered.length === 0) return {success:false, message:"No data for selection"};
+  
+  var vcfData = filtered.map(row => row[bgIndex].replace(/"/g,"")).join("\n");
+  
+  var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
+  var file = DriveApp.createFile(blob);
+  
+  return {success:true, url:file.getUrl()};
 }
 
 // ======================
@@ -832,8 +873,8 @@ function getLastDataRow_(sheet, keyCol = 3) {
             ),
             IF(AN2="L",
             IF(CI2="AFT",
-                FLOOR((COUNTIFS(AL$2:AL2,AL2,AN$2:AN2,"L",CI$2:CI2,"AFT")-1)/30,1),
-                FLOOR((COUNTIFS(AL$2:AL2,AL2,AN$2:AN2,"L",CI$2:CI2,"MOR")-1)/30,1)
+                FLOOR((COUNTIFS(AL$2:AL2,AL2,AN$2:AN2,"L",CI$2:CI2,"AFT")-1)/25,1),
+                FLOOR((COUNTIFS(AL$2:AL2,AL2,AN$2:AN2,"L",CI$2:CI2,"MOR")-1)/25,1)
             ),
             ""
             )
