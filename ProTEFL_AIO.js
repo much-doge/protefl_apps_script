@@ -7,7 +7,7 @@
  * All rights reserved.
  *
  * You are granted permission to use, copy, and modify this software **for your
- * personal or organizational use only**. Redistribution or commercial use
+ * personal use only**. Redistribution or commercial use
  * without explicit permission from the author is prohibited.
  *
  * Author: Nur Eko Windianto
