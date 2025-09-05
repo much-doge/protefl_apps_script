@@ -36,6 +36,9 @@ function onOpen() {
           .addItem("Verify Student ID", "toggleVerifyStudentIDView")
           .addItem("Verify Payment", "toggleVerifyPaymentView") 
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
+      .addSeparator()
+      // Data entry
+      .addItem("Manual Data Entry", "showManualDataEntrySidebar")
       )
     .addToUi();
 
@@ -192,6 +195,17 @@ function letterToColumn_(letter) {
   var col = 0;
   for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
   return col;
+}
+
+// ======================
+// DATA ENTRY SCRIPT FUNCTION
+// ======================
+function appendManualEntry(email, option) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  if (!sheet) return;
+
+  const timestamp = new Date();
+  sheet.appendRow([timestamp, email, option]);
 }
 
 // ======================
@@ -353,6 +367,46 @@ function showVerifyAttendanceSidebar() {
     </div>
   `;
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(htmlContent).setTitle("Verify Attendance"));
+}
+
+function showManualDataEntrySidebar() {
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;">
+      <h2 style="margin-top:0;">Manual Data Entry</h2>
+      <p>Enter participant info below:</p>
+      <label for="email">Email:</label><br>
+      <input type="email" id="email" style="width:100%;margin-bottom:10px;" required><br>
+
+      <label for="option">Option:</label><br>
+      <select id="option" style="width:100%;margin-bottom:10px;">
+        <option value="ProTEFL SIAKAD UNY (tanpa sertifikat)">ProTEFL SIAKAD UNY (tanpa sertifikat)</option>
+        <option value="ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)">ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)</option>
+      </select><br>
+
+      <button onclick="submitData()" style="width:100%;padding:6px 0;margin-top:6px;">Submit</button>
+
+      <p id="status" style="color:green;margin-top:8px;"></p>
+
+      <script>
+        function submitData() {
+          const email = document.getElementById('email').value;
+          const option = document.getElementById('option').value;
+          if(!email) {
+            document.getElementById('status').style.color = 'red';
+            document.getElementById('status').innerText = 'Email is required!';
+            return;
+          }
+          google.script.run.withSuccessHandler(() => {
+            document.getElementById('status').style.color = 'green';
+            document.getElementById('status').innerText = 'Participant added!';
+            document.getElementById('email').value = '';
+            document.getElementById('option').selectedIndex = 0;
+          }).appendManualEntry(email, option);
+        }
+      </script>
+    </div>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Manual Data Entry"));
 }
 
 // These are used to automatically populate the headers/titles inside each sheet.
