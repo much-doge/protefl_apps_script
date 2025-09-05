@@ -34,6 +34,8 @@ function onOpen() {
           .addItem("Default View", "toggleDefaultView")
           .addItem("Reschedule Participants", "toggleRescheduleParticipantsView")
           .addItem("Verify Student ID", "toggleVerifyStudentIDView")
+          .addItem("Verify Payment", "toggleVerifyPaymentView") 
+          .addItem("Verify Attendance", "toggleVerifyAttendanceView")
       )
     .addToUi();
 
@@ -168,6 +170,21 @@ function toggleVerifyStudentIDView() {
   applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
 }
 
+function toggleVerifyPaymentView() {
+  // Columns to keep visible: A, G, AS-AY, BI
+  var keepCols = ["A", "G", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI"];
+  applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
+}
+
+function toggleVerifyAttendanceView() {
+  var keepCols = [
+    "A","C","D","G","V","W","AI","AJ","AL","AN","AO",
+    "BC","BI","BJ","BL","BN","BQ","BS",
+    "BU","BV","BW","BX","CB","CG"
+  ];
+  applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
+}
+
 // ======================
 // UTILITY
 // ======================
@@ -187,6 +204,7 @@ function showDefaultSidebar() {
       <h2 style="margin-top:0;">Welcome to ProTEFL MDMA</h2>
       <p><i>(ProTEFL Monthly Data Management Admin)</i></p>
       <p>It's ProTEFL but on Speed ⚡</p>
+      <p>The original admin wants you to know that he has read Discovering statistics using IBM SPSS statistics: and *** and drugs and rock 'n' roll and you should too! If only there is similar book on spreadsheet...</p>
       <p>This workbook handles everything:</p>
       <ul>
         <li><b>Registration</b>: from Google Forms / manual entry</li>
@@ -258,6 +276,83 @@ function showVerifyStudentIDSidebar() {
     </div>
   `;
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Verify Student ID"));
+}
+
+function showVerifyPaymentSidebar() {
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;color:#222;">
+      <h2 style="margin-top:0;">💰 Verify Payment Quick Guide</h2>
+      <p>This view is for verifying test taker payments — this keeps ULB overlord(s) happy!</p>
+
+      <h3>Online payment via transfer:</h3>
+      <ol style="padding-left:18px;">
+        <li>Check the <b>Bukti Bayar</b> attachment in column <b>AU</b>.</li>
+        <li>Verify: is it authentic? Not fake? Matches participant? </li>
+        <li>If everything is ✅, select <b>LUNAS</b> in column <b>AX</b>.</li>
+        <li>If any issue arises, select the other status(es) in accordance with the problem.</li>
+        <li>Done! Move on to the next participant.</li>
+      </ol>
+
+      <h3>Manual payment (e.g. LURING / on-demand):</h3>
+      <ol style="padding-left:18px;">
+        <li>Ensure the participant received their proof of payment / kuitansi / receipt.</li>
+        <li>Search their name in column <b>AS</b>.</li>
+        <li>Copy the <b>Nomor Ujian</b> from their receipt into column <b>G</b>. Ignore other text like D4, S1, S2, S3 — overwrite them, those are just placeholder (I am too lazy to restructure the whole Google Form structure after all these formulas and magic).</li>
+        <li>Important: write <b>_OFFGRID</b> in column <b>BI</b>. This forces the workbook to use the receipt’s <b>Nomor Ujian</b> instead of the default NIM. Why? To make sure that non-paying registrants cannot sneak in/log in to ProTEFL SEB using their NIM.</li>
+      </ol>
+
+      <p style="margin-top:12px; font-size:12px; color:#555;">
+        Pro tip: Always double-check attachments or make sure you write the correct Nomor Ujian to avoid complaints later on. ⚡
+      </p>
+    </div>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Verify Payment"));
+}
+
+function showVerifyAttendanceSidebar() {
+  var htmlContent = `
+    <div style="font-family:Arial, sans-serif; padding:16px; line-height:1.5;">
+      <h2 style="margin-top:0;">📊 Verify Attendance & Score</h2>
+      <p><i>Use this view to verify attendance and score checking. This is by far the most time-consuming part (god I wish I got paid extra for this).</i></p>
+
+      <h3>Step 0: For sanity’s sake</h3>
+      <p>Enable filter by date: look at <b>BJ</b> and select a single date. Trust me, your sanity will thank you.</p>
+
+      <h3>Step 1: Prepare</h3>
+      <p>You need to check attendance report from proctors (in another sheet, sadly). Use split window view for best productivity—one side the attendance sheet, another side this sheet.</p>
+
+      <h3>Step 2: Import Scores</h3>
+      <p>Copy the scores into this workbook in <b>SINICOPYHASILSKOR</b> and do the necessary formatting. Make sure column <b>A</b> on <b>SINICOPYHASILSKOR</b> matches <b>BQ</b> in <b>Form responses 1</b> (this sheet). Then, in <b>SINICOPYHASILSKOR</b> copy test ID in P, write the appropriate kode masuk in Q, and make sure R has the formula "=(Q2 & "-" & P2)" so on; and A has the formula "=R2" and so on, drag them down. The scores will then appear across <b>BU to BY</b> in Form responses 1.</p>
+
+      <p>Disclaimer: this works under the assumption that the data you copy into SINICOPYHASILSKOR is pristine and no tes IDs are misplaced, replaced, moved from their original cells. If there are errors, that's on you. Congrats you just messed up an entire results of that day tests and maybe others. Now cry and curl up in the corner!</p>
+
+      <h3>Step 3: Check for missing scores</h3>
+      <p>If no score appears, there are three possibilities:</p>
+      <ol style="padding-left:18px;">
+        <li>
+          <b>Did not attend:</b> mark reschedule on <b>V</b> to Yes, write placeholder to <b>W</b>. We will ask them later using template message link in <b>AE</b>. This revokes their registration on this date; no data in <b>SINICOPYHASILSKOR</b> will link to any test ID.
+        </li>
+        <li>
+          <b>Used Akun Cadangan:</b> copy akun cadangan to <b>G</b>, write <b>_OFFGRID</b> to <b>BI</b>, and check if scores appear on <b>BU-BX</b>.
+        </li>
+        <li>
+          <b>NIM mismatch:</b> mismatch between <b>D</b> and whatever test ID they used in <b>SINICOPYHASILSKOR</b>. Resolve by checking their used ID, refer to proctor notes, and do step two above. 
+          Is their NIM not matching? Check <b>BC</b> for <b>CEK NAMA</b>. Still no score? Confirm <b>D</b> vs attendance sheet ID. Or call Windi while he’s still around. Typing this is already exhausting.
+        </li>
+      </ol>
+
+      <h3>Step 4: When all else fails</h3>
+      <p>
+        If nothing works and there is no attendance note, you are <b>COOKED 💀</b>.<br>
+        Or they didn’t attend and the proctor forgot to mark it—prepare pitchfork, torch, gasoline, and proceed to set the proctor ablaze! It’s their <b>FAULT!</b>
+      </p>
+
+      <p style="color:#555; font-size:12px; margin-top:12px;">
+        Reminder: patience, coffee, and a deep breath are your best allies. Oh, what's that God Mode in CG? Try typing funny negative number in it and watch BX burns.
+      </p>
+    </div>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(htmlContent).setTitle("Verify Attendance"));
 }
 
 // These are used to automatically populate the headers/titles inside each sheet.
@@ -464,7 +559,7 @@ const SHEET_INITIALIZATIONS = [
       ['CD1', 'MIN MEN'],
       ['CE1', 'TAMBAHAN SKOR JUR INGG'],
       ['CF1', 'Cari gris'],
-      ['CG1', 'Treatment'],
+      ['CG1', 'God Mode'],
       ['CH1', 'Skor TKBI'],
       ['CI1', 'Helper Grup Pagi Siang']
     ]
