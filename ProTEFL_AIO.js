@@ -12,87 +12,142 @@ function main() {
     // Optionally: syncRescheduleCounts(); // Recalculate reschedule count column (autoCounters.gs)
 }
 
-// Create ribbon or whatever you call it, menu. Oh it's menu bar. Yes, this creates menu bar called "ProTEFL Utility."
+// ======================
+// MENU SETUP
+// ======================
+
+/**
+ * Creates the custom menu bar "ProTEFL Utility" in the spreadsheet UI.
+ * This runs automatically whenever the spreadsheet is opened.
+ */
 function onOpen() {
-    SpreadsheetApp.getUi()
-      .createMenu("ProTEFL Utility")
-      .addItem("Apply Styles", "applyAllStylingWithConfirm")
-      .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
-      .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
-      .addSeparator()
-      .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
-      .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
-      .addToUi();
+  SpreadsheetApp.getUi()
+    .createMenu("ProTEFL Utility")
+    // --- Safe options ---
+    .addItem("Apply Styles", "applyAllStylingWithConfirm")
+    .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
+    .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
+    .addSeparator()
+    // --- Risky options ---
+    .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
+    .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
+    .addToUi();
+}
+
+// ======================
+// MENU ACTION WRAPPERS (with confirmation dialogs)
+// ======================
+
+/**
+ * Confirm + reapply styles to all managed sheets.
+ * Resets header colors, banding, and column widths.
+ */
+function applyAllStylingWithConfirm() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    "Apply Styles",
+    "Do you want to re-apply all custom styles to your registration sheets? " +
+    "This will reset header colors, column banding, and other visual formatting. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp == ui.Button.OK) {
+    applyAllStyling();
+    ui.alert("Styling applied!");
+  } else {
+    ui.alert("Cancelled. No changes made.");
   }
-    function applyAllStylingWithConfirm() {
-      var ui = SpreadsheetApp.getUi();
-      var resp = ui.alert(
-        "Apply Styles",
-        "Do you want to re-apply all custom styles to your registration sheets? This will reset header colors, column banding, and other visual formatting in all managed sheets. Proceed?",
-        ui.ButtonSet.OK_CANCEL
-      );
-      if (resp == ui.Button.OK) {
-        applyAllStyling();
-        ui.alert("Styling applied!");
-      } else {
-        ui.alert("Cancelled. No changes made.");
-      }
+}
+
+/**
+ * Confirm + apply all configured formulas.
+ * ⚠️ WARNING: Requires DATABASEMAHASISWA sheet to exist.
+ */
+function applyAllFormulasWithConfirm() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    "Apply All Formulas (Danger Zone)",
+    "Have you copied/imported the DATABASEMAHASISWA sheet into this workbook? " +
+    "Applying ALL formulas may cause errors if lookup sheets are missing. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp == ui.Button.OK) {
+    applyAllFormulas();
+    ui.alert("All formulas applied!");
+  } else {
+    ui.alert("Cancelled. No changes made.");
+  }
+}
+
+/**
+ * Confirm + run the full initialization process.
+ * ⚠️ WARNING: This recreates sheets/headers and applies defaults (NOT reversible).
+ */
+function runMainWithConfirm() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    "Initialize Sheet (Danger Zone)",
+    "This will initialize/reinitialize your registration workbook " +
+    "(create sheets, headers, values, styles, etc). " +
+    "Have you copied the DATABASEMAHASISWA sheet into this workbook? " +
+    "This process is NOT reversible. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp == ui.Button.OK) {
+    main();
+    ui.alert("Sheet initialization complete!");
+  } else {
+    ui.alert("Cancelled. No changes made.");
+  }
+}
+
+/**
+ * Confirm + set up the installable onEdit trigger.
+ * Replaces any existing trigger for `onEditLogReschedule`.
+ */
+function setupAutoCounterTriggerWithAlert() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    "Set Up Trigger",
+    "This will create or replace the installable onEdit trigger " +
+    "for the auto counter/logging script in this spreadsheet.\n\nProceed?",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp == ui.Button.OK) {
+    setupAutoCounterTrigger();
+    ui.alert("AutoCounter Trigger is now set up! (Previous trigger, if any, was replaced.)");
+  } else {
+    ui.alert("Cancelled. No changes made.");
+  }
+}
+
+// ======================
+// TRIGGER MANAGEMENT
+// ======================
+
+/**
+ * Creates the onEdit trigger for `onEditLogReschedule`.
+ * Any existing trigger for the same handler is first removed.
+ */
+function setupAutoCounterTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+
+  // Remove old triggers for this handler
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === "onEditLogReschedule") {
+      ScriptApp.deleteTrigger(trigger);
     }
-    function applyAllFormulasWithConfirm() {
-      var ui = SpreadsheetApp.getUi();
-      var resp = ui.alert(
-        "Apply All Formulas (Danger Zone)",
-        "Have you copied or imported the DATABASEMAHASISWA sheet into this workbook? Applying ALL formulas may cause errors if lookup sheets aren't present. Are you SURE you want to rerun ALL formulas and array/dynamic columns?",
-        ui.ButtonSet.OK_CANCEL
-      );
-      if (resp == ui.Button.OK) {
-        applyAllFormulas();
-        ui.alert("All formulas applied!");
-      } else {
-        ui.alert("Cancelled. No changes made.");
-      }
-    }
-    function runMainWithConfirm() {
-      var ui = SpreadsheetApp.getUi();
-      var resp = ui.alert(
-        "Initialize Sheet (Danger Zone)",
-        "This will initialize/reinitialize your registration workbook (create sheets, headers, values, styles, etc). Have you copied the DATABASEMAHASISWA sheet to this workbook? This process is NOT reversible. Proceed?",
-        ui.ButtonSet.OK_CANCEL
-      );
-      if (resp == ui.Button.OK) {
-        main();
-        ui.alert("Sheet initialization complete!");
-      } else {
-        ui.alert("Cancelled. No changes made.");
-      }
-    }
-    function setupAutoCounterTriggerWithAlert() {
-        var ui = SpreadsheetApp.getUi();
-        var resp = ui.alert(
-          "Set Up Trigger",
-          "This will create or replace the installable onEdit trigger for the auto counter/logging script on this spreadsheet.\n\nProceed?",
-          ui.ButtonSet.OK_CANCEL
-        );
-        if (resp == ui.Button.OK) {
-          setupAutoCounterTrigger();
-          ui.alert("AutoCounter Trigger is now set up! (If it was already present, it has been replaced.)");
-        } else {
-          ui.alert("Cancelled. No changes made.");
-        }
-    }
-    function setupAutoCounterTrigger() {
-        var triggers = ScriptApp.getProjectTriggers();
-        // Remove previous onEditLogReschedule triggers for this spreadsheet
-        triggers.forEach(function(trigger) {
-          if (trigger.getHandlerFunction() === 'onEditLogReschedule') {
-            ScriptApp.deleteTrigger(trigger);
-          }
-        });
-        ScriptApp.newTrigger('onEditLogReschedule')
-          .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
-          .onEdit()
-          .create();
-    }
+  });
+
+  // Create a fresh onEdit trigger
+  ScriptApp.newTrigger("onEditLogReschedule")
+    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
+    .onEdit()
+    .create();
+}
 
 // EXPERIMENTAL FEATURE
 
