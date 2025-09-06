@@ -48,8 +48,8 @@ function onOpen() {
       .addSubMenu(
           SpreadsheetApp.getUi()
            .createMenu("Export")
-           .addItem("Participant Test IDs", "exportParticipantTestIds"))
-      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
+           .addItem("Participant Test IDs", "exportParticipantTestIds")
+      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu"))
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
