@@ -49,7 +49,9 @@ function onOpen() {
           SpreadsheetApp.getUi()
            .createMenu("Export")
            .addItem("Participant Test IDs", "exportParticipantTestIds")
-      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu"))
+      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
+           .addItem("Copy Attendance List", "copyAttendanceList")
+       )
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
@@ -840,6 +842,116 @@ function showGroupingContactsSidebar() {
   `;
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Grouping & Contacts"));
 }
+
+
+//
+// EXPERIMENTAL
+//
+// ======================
+// COPY ATTENDANCE LIST FUNCTION
+// ======================
+function copyAttendanceList() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt(
+    "Enter Test Date (YYYYMMDD)",
+    "Provide test date:",
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  const dateFilter = response.getResponseText().trim();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("04. BUAT PRESENSI DAN GRUP WA H-1");
+  if (!sheet) return ui.alert("Target sheet not found.");
+
+  let data = sheet.getDataRange().getValues();
+  const header = data.shift();
+  const dateColIndex = 5; // Column F (zero-based)
+  const sortColIndex = 6; // Column G
+
+  // Filter by test date
+  data = data.filter(row => String(row[dateColIndex]) === dateFilter);
+
+  if (data.length === 0) {
+    // Error modal (VCF style)
+    const html = `
+      <div style="
+          font-family: 'Google Sans', Arial, sans-serif; 
+          padding:20px; 
+          background:#fefefe; 
+          color:#222; 
+          border-radius:10px; 
+          box-shadow:0 2px 5px rgba(0,0,0,0.15);
+      ">
+        <h2 style="margin-top:0; color:#c62828;">⚠️ No Entries Found</h2>
+        <p>No attendance records found for "<b>${dateFilter}</b>".</p>
+        <p>Check column <b>F</b> ('Test Date') for existing values (format: YYYYMMDD).</p>
+        <button onclick="google.script.host.close()" style="
+            background:#1e88e5;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:8px 12px;
+            cursor:pointer;
+        ">Close</button>
+      </div>
+    `;
+    ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(220), "Copy Attendance Error");
+    return;
+  }
+
+  // Sort by column G
+  data.sort((a, b) => (a[sortColIndex] > b[sortColIndex]) ? 1 : (a[sortColIndex] < b[sortColIndex] ? -1 : 0));
+
+  // Insert two empty rows when G changes
+  let lastValue = data[0][sortColIndex];
+  const processed = [data[0]];
+  for (let i = 1; i < data.length; i++) {
+    const currentValue = data[i][sortColIndex];
+    if (currentValue !== lastValue) {
+      processed.push([""]); // empty row 1
+      processed.push([""]); // empty row 2
+    }
+    processed.push(data[i]);
+    lastValue = currentValue;
+  }
+
+  // Tab-delimited string
+  const tabText = processed.map(row => row.join("\t")).join("\n");
+
+  // VCF-style success modal
+  const html = `
+    <div style="
+        font-family: 'Google Sans', Arial, sans-serif; 
+        padding:20px; 
+        background:#edf2fa; 
+        color:#222; 
+        border-radius:10px; 
+        box-shadow:0 2px 5px rgba(0,0,0,0.15);
+    ">
+      <h2 style="margin-top:0; color:#1e88e5;">✅ Attendance List Ready</h2>
+      <p>${processed.length} rows for "<b>${dateFilter}</b>"</p>
+      <textarea id="attendanceData" style="width:100%;height:250px;margin-top:8px;">${tabText}</textarea>
+      <p style="margin-top:12px;">
+        <button onclick="document.getElementById('attendanceData').select(); document.execCommand('copy');" style="
+            background:#1e88e5;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:8px 12px;
+            cursor:pointer;
+        ">Copy to Clipboard</button>
+      </p>
+      <p style="margin-top:8px; font-size:12px; color:#555;">Tip: Paste directly into your attendance sheet.</p>
+    </div>
+  `;
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(460).setHeight(350), "Copy Attendance List");
+}
+
+//
+// EXPERIMENTAL
+//
+
+
 
 // These are used to automatically populate the headers/titles inside each sheet.
 /**
