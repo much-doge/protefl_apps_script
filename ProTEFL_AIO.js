@@ -44,7 +44,7 @@ function onOpen() {
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
-      .addItem("Export VCF by Tanggal Tes", "showVCFSidebar")
+      .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
@@ -59,6 +59,7 @@ function onOpen() {
           .addItem("Verify Student ID", "toggleVerifyStudentIDView")
           .addItem("Verify Payment", "toggleVerifyPaymentView") 
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
+          .addItem("Grouping & Contacts", "toggleGroupingContactsView")
       )
     .addToUi();
 
@@ -131,6 +132,49 @@ function setupDefaultViewTrigger() {
 function onOpenDefaultView() {
   toggleDefaultView(true);
 }
+
+function downloadVCFFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt("Enter Tanggal Tes (yyyy-MM-dd) to download VCF:");
+
+  if (response.getSelectedButton() != ui.Button.OK) return;
+  const date = response.getResponseText().trim();
+
+  const result = exportVCF(date);
+  if (!result.success) {
+    ui.alert("Error: " + result.message);
+    return;
+  }
+
+  // Show a clickable download dialog
+  const html = `
+    <p>VCF file has been created in Google Drive:</p>
+    <p><a href="${result.url}" target="_blank" download>Click here to download VCF</a></p>
+    <p>Close this dialog when done.</p>
+  `;
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(400).setHeight(150), "VCF Ready");
+}
+
+
+function exportVCF(selection) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  var data = sheet.getDataRange().getValues();
+  var header = data.shift();
+  
+  var bjIndex = header.indexOf("Tanggal tes");
+  var bgIndex = header.indexOf("Grouping VCF");
+  if (bjIndex === -1 || bgIndex === -1) return { success: false, message: "Columns not found" };
+  
+  var filtered = data.filter(row => row[bjIndex] === selection);
+  if (filtered.length === 0) return { success: false, message: "No data for selection" };
+  
+  var vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
+  var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
+  var file = DriveApp.createFile(blob);
+
+  return { success: true, url: file.getUrl() };
+}
+
 
 // ======================
 // CUSTOM VIEWS (Optimized, Reliable Toggle)
@@ -208,6 +252,11 @@ function toggleVerifyAttendanceView() {
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
 
+function toggleGroupingContactsView() {
+  const keepCols = ["A", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
+  applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
+}
+
 // ======================
 // UTILITY
 // ======================
@@ -217,79 +266,177 @@ function letterToColumn_(letter) {
   return col;
 }
 
-function showVCFSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile("VCFSidebar")
-      .setTitle("Export VCF by Tanggal Tes")
-      .setWidth(300);
-  SpreadsheetApp.getUi().showSidebar(html);
-}
-
-// Get unique BJ values
-function getBJOptions() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  var data = sheet.getDataRange().getValues();
-  var header = data.shift();
-  var bjIndex = header.indexOf("Tanggal tes");
-  if (bjIndex === -1) return [];
-  
-  var bjValues = [...new Set(data.map(row => row[bjIndex]))];
-  return bjValues;
-}
-
-// Export filtered BG as .vcf
-function exportVCF(selection) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  var data = sheet.getDataRange().getValues();
-  var header = data.shift();
-  
-  var bjIndex = header.indexOf("Tanggal tes");
-  var bgIndex = header.indexOf("Grouping VCF");
-  if (bjIndex === -1 || bgIndex === -1) return {success:false, message:"Columns not found"};
-  
-  var filtered = data.filter(row => row[bjIndex] === selection);
-  if (filtered.length === 0) return {success:false, message:"No data for selection"};
-  
-  var vcfData = filtered.map(row => row[bgIndex].replace(/"/g,"")).join("\n");
-  
-  var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
-  var file = DriveApp.createFile(blob);
-  
-  return {success:true, url:file.getUrl()};
-}
-
 // ======================
 // SIDEBARS (Optimized)
 // ======================
 
 function showDefaultSidebar() {
   const html = `
-    <div style="font-family:Arial,sans-serif;padding:16px;line-height:1.5;color:#222;">
-      <h2 style="margin-top:0;">Welcome to ProTEFL MDMA</h2>
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8">
+      <title><span class="material-icons">storage</span>ProTEFL MDMA</title>
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <!-- Google Sans -->
+      <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Google Sans', Arial, sans-serif;
+          margin: 0;
+          padding: 16px;
+          background: #edf2fa;   /* sidebar background */
+          color: #222;
+        }
+
+        h2 { margin-top:0; color:#1a1a1a; }
+        h3 { margin-top:12px; color:#333; }
+
+        /* Card styling */
+        .card {
+          background: #d3e3fd;
+          border-radius: 10px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+          padding: 12px 16px;
+          margin-bottom: 12px;
+          transition: transform 0.1s ease, box-shadow 0.4s ease;
+        }
+
+        .card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Header styling */
+        .card-header {
+          font-weight: bold;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          color: #1a1a1a;
+        }
+
+        .card-header .arrow-icon {
+          font-size: 26px;       /* big arrow */
+          margin-right: 8px;
+          transition: transform 0.4s ease;
+          color: #3a3a3a;
+        }
+
+        .card-header .section-icon {
+          font-size: 20px;
+          margin-right: 6px;
+          color: #1e88e5;       /* blue icon accent */
+        }
+
+        .card-content {
+          margin-top: 8px;
+          color: #333;
+        }
+
+        ul { margin: 0; padding-left: 18px; }
+        li { margin-bottom: 4px; }
+
+        .footer-note { color:#555; font-size:12px; margin-top:16px; }
+        a { color:#1e88e5; text-decoration:none; }
+        a:hover { text-decoration:underline; }
+      </style>
+    </head>
+    <body>
+      <h2>Welcome to ProTEFL MDMA</h2>
       <p><i>(ProTEFL Monthly Data Management Admin)</i></p>
       <p>It's ProTEFL but on Speed ⚡</p>
-      <p>The original admin wants you to know that he has read Discovering statistics using IBM SPSS statistics: and *** and ***** and rock 'n' roll and you should too! If only there is similar book on spreadsheet...</p>
-      <p>This workbook handles everything:</p>
-      <ul>
-        <li><b>Registration</b>: from Google Forms / manual entry</li>
-        <li><b>Data management</b>: reschedule, payment status, student ID verification, manual test count checking (via Admin Old Siakad), automatic & override test group plotting, contact creation (VCF), autogenerated attendance, test ID lists</li>
-        <li><b>Scoring</b>: attendance verification, score checking, reschedule offering, autogenerated score report format, autogenerated certificate data format, autogenerated SISTER upload format (obsolete)</li>
-      </ul>
+
+      <!-- Registration Card -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCollapse(this)">
+          <span class="arrow-icon material-icons">expand_more</span>
+          <span class="section-icon material-icons">assignment</span>
+          Registration
+        </div>
+        <div class="card-content">
+          <ul>
+            <li>Google Forms Entry</li>
+            <li>Manual Entry (menu planned)</li>          
+          </ul>
+        </div>
+      </div>
+
+      <!-- Data Management Card -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCollapse(this)">
+          <span class="arrow-icon material-icons">expand_more</span>
+          <span class="section-icon material-icons">settings</span>
+          Data Management
+        </div>
+        <div class="card-content">
+          <ul>
+            <li>Participant(s) Rescheduling (Before Test)</li>
+            <li>Student ID Verification</li>
+            <li>Manual Test Count Checking (menu planned)</li>
+            <li>Automatic & Override Option of Test Group Plotting (menu planned)</li>
+            <li>Contact Creation (VCF) (menu planned)</li>
+            <li>Autogenerated Attendance & Test ID Lists (menu planned)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Scoring Card -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCollapse(this)">
+          <span class="arrow-icon material-icons">expand_more</span>
+          <span class="section-icon material-icons">assessment</span>
+          Scoring
+        </div>
+        <div class="card-content">
+          <ul>
+            <li>Attendance Verification & Reschedule Flagging (After Test)</li>
+            <li>Score Checking</li>
+            <li>Reschedule Offering (same as in Data Management)</li>
+            <li>Autogenerated Score Report format</li>
+            <li>Autogenerated Certificate Data Format</li>
+            <li>Autogenerated SISTER Upload Format (obsolete)</li>
+          </ul>
+        </div>
+      </div>
 
       <h3>About this Default View:</h3>
       <p>
         This is the <b>home base</b>. Only essential columns are shown 
         (IDs, names, key status checks, and admin flags).  
-        It’s the clean slate you land on every time you open the workbook.  
+        It is the clean slate you (dear admin[s]) land on every time you open the workbook.  
         From here, jump into other custom views if you need to 
-        focus on specific tasks like rescheduling, ID verification, attendance and score verification, or others.
+        focus on tasks like rescheduling, ID verification, attendance, or score verification.
       </p>
 
-      <p>You can open other views by checking <b>ProTEFL Utility &gt; Custom View</b> on the menu bar above.</p>
-
-      <p style="color:#555; font-size:12px; margin-top:12px;">
-        Reminder: speed is great, but accurate data keeps the complaints away.
+      <p>
+        Open other views via <b>ProTEFL Utility &gt; Custom View</b> in the menu bar.
       </p>
-    </div>
+
+      <p class="footer-note">
+        Reminder: speed is great, but accurate data keeps the complaints away. 
+        PS. The title is obviously inspired by Andy Field way of naming his books. 
+        I mean, "Discovering statistics using IBM SPSS statistics: and **x and d**** and rock 'n' roll" ...what a legend.
+      </p>
+
+      <script>
+        function toggleCollapse(header) {
+          const content = header.nextElementSibling;
+          const arrow = header.querySelector('.arrow-icon');
+          if(content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+          } else {
+            content.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+          }
+        }
+
+        // Collapse all sections on load
+        document.querySelectorAll('.card-content').forEach(c => c.style.display='none');
+      </script>
+    </body>
+  </html>
   `;
 
   SpreadsheetApp.getUi()
@@ -416,6 +563,98 @@ function showVerifyAttendanceSidebar() {
     </div>
   `;
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(htmlContent).setTitle("Verify Attendance"));
+}
+
+function showGroupingContactsSidebar() {
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Grouping & Contacts</title>
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+      <style>
+        body { font-family:'Google Sans', Arial, sans-serif; margin:0; padding:16px; background:#edf2fa; color:#222; }
+        h2 { margin-top:0; color:#1a1a1a; }
+        .card { background:#d3e3fd; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.15); padding:12px 16px; margin-bottom:12px; transition: transform 0.1s ease, box-shadow 0.4s ease; }
+        .card:hover { transform:translateY(-2px); box-shadow:0 6px 10px rgba(0,0,0,0.2); }
+        .card-header { font-weight:bold; cursor:pointer; display:flex; align-items:center; color:#1a1a1a; }
+        .card-header .arrow-icon { font-size:26px; margin-right:8px; transition: transform 0.4s ease; color:#3a3a3a; }
+        .card-header .section-icon { font-size:20px; margin-right:6px; color:#1e88e5; }
+        .card-content { margin-top:8px; color:#333; }
+        ul { margin:0; padding-left:18px; }
+        li { margin-bottom:4px; }
+        .footer-note { color:#555; font-size:12px; margin-top:16px; }
+      </style>
+    </head>
+    <body>
+      <h2>Grouping & Contacts</h2>
+      <p><i>Manage automatic groupings and contact creation</i></p>
+
+      <div class="card">
+        <div class="card-header" onclick="toggleCollapse(this)">
+          <span class="arrow-icon material-icons">expand_more</span>
+          <span class="section-icon material-icons">group_work</span>
+          Grouping
+        </div>
+        <div class="card-content">
+          <ul>
+            <li>Filter <b>AL</b> to select a specific date.</li>
+            <li>Automatic group assignments appear in <b>AO</b>.</li>
+            <li>Override group manually in <b>AP</b> if needed.</li>
+            <li>Group naming logic:
+              <ul>
+                <li>Extract 3 digits from date in <b>AL</b> → year/month.</li>
+                <li>One character denotes test mode: "D" = online, "L" = offline.</li>
+                <li>Three-character alphanumeric group code based on session/sequence.</li>
+                <li>Suffix "T_" or "S_" indicates TKBI/SISTER vs regular participant.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" onclick="toggleCollapse(this)">
+          <span class="arrow-icon material-icons">expand_more</span>
+          <span class="section-icon material-icons">contacts</span>
+          Contact Creation (VCF)
+        </div>
+        <div class="card-content">
+          <ul>
+            <li>VCF entries are in <b>BG</b>, starting with 8 alphanumeric digits (e.g., 25SLA12S).</li>
+            <li>Use these codes to import participants into WhatsApp groups reliably.</li>
+            <li>To download a VCF:
+              <ul>
+                <li>Filter by date in <b>AL</b>.</li>
+                <li>Use <b>ProTEFL Utility → Download VCF by Tanggal Tes</b> in the menu bar.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="footer-note">Ensure accuracy when editing groups or downloading VCF — speed is great, but mistakes cost time!</p>
+
+      <script>
+        function toggleCollapse(header) {
+          const content = header.nextElementSibling;
+          const arrow = header.querySelector('.arrow-icon');
+          if(content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+          } else {
+            content.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+          }
+        }
+        document.querySelectorAll('.card-content').forEach(c => c.style.display='none');
+      </script>
+    </body>
+  </html>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Grouping & Contacts"));
 }
 
 // These are used to automatically populate the headers/titles inside each sheet.
