@@ -29,13 +29,30 @@
 // Run this only when initializing or re-initializing (destructive).
 // ============================================================================
 function main() {
+
+  // --------------------------------------------------------------------------
+  // Prerequisite: DATABASEMAHASISWA must exist
+  // --------------------------------------------------------------------------
+  pullDatabaseMahasiswa();         // Pulling DATABASEMAHASISWA from source  
   initializeSheets();              // Create sheets and populate headers/templates
   setupAllDropdowns();             // Add dropdown validations
   protectOriginalScheduleColumn(); // Lock the "Original Schedule" column (R)
   applyAllStyling();               // Apply header fonts, widths, colors
-  applyAllFormulas();              // Insert all ARRAY/FILLDOWN formulas
+  // Only run appluFormulas if sheet exists
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName("DATABASEMAHASISWA")) {
+    applyAllFormulas();            // Insert all ARRAY/FILLDOWN formulas
+  } else {
+    SpreadsheetApp.getUi().alert(
+      "Formulas Skipped ❌",
+      "'DATABASEMAHASISWA' is missing. Formulas not applied.",
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
   setupDefaultViewTrigger();       // Ensure Default View trigger is installed
   installRescheduleTrigger();      // Ensure reschedule auto-counter trigger
+
+  SpreadsheetApp.getUi().alert("Main Completed ✅", "All setup steps finished successfully.", SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 // ============================================================================
@@ -50,6 +67,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ProTEFL Utility")
       // --- Safe options ---
+      .addItem("Fix Column CD", "fixColumnCD")
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
@@ -66,6 +84,7 @@ function onOpen() {
       // --- Risky options ---
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
       .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
+      .addItem("Pull DATABASEMAHASISWA (Danger Zone)", "pullDatabaseMahasiswa")
       .addSeparator()
       // --- Custom views ---
       .addSubMenu(
@@ -81,6 +100,45 @@ function onOpen() {
     .addToUi();
 
   toggleDefaultView(true); // Always open default view on launch
+}
+
+// ----------------------------------------------------------------------------
+// Prerequisite for main. Pull DATABASEMAHASISWA from source with success/failure dialogs
+// ----------------------------------------------------------------------------
+function pullDatabaseMahasiswa() {
+  const ui = SpreadsheetApp.getUi();
+  const destSS = SpreadsheetApp.getActiveSpreadsheet();
+  const sourceUrl = "LIKE I WILL GIVE IT TO YOU LOL";
+  
+  try {
+    const sourceSS = SpreadsheetApp.openByUrl(sourceUrl);
+    const sourceSheet = sourceSS.getSheetByName("DATABASEMAHASISWA");
+    if (!sourceSheet) {
+      ui.alert("Pull Failed ❌", "Source sheet 'DATABASEMAHASISWA' not found in the source spreadsheet.", ui.ButtonSet.OK);
+      return;
+    }
+
+    // Delete existing sheet if present
+    const existingSheet = destSS.getSheetByName("DATABASEMAHASISWA");
+    if (existingSheet) {
+      destSS.deleteSheet(existingSheet);
+    }
+
+    // Copy sheet and rename
+    const copiedSheet = sourceSheet.copyTo(destSS);
+    copiedSheet.setName("DATABASEMAHASISWA");
+
+    // Optional: move to first position
+    destSS.setActiveSheet(copiedSheet);
+    destSS.moveActiveSheet(1);
+
+    // Success dialog
+    ui.alert("Pull Successful ✅", "'DATABASEMAHASISWA' has been copied successfully.", ui.ButtonSet.OK);
+
+  } catch (e) {
+    // Failure dialog
+    ui.alert("Pull Failed ❌", "Error pulling sheet: " + e.message, ui.ButtonSet.OK);
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -2696,4 +2754,45 @@ function applyAllStyling() {
       });
     }
   });
+}
+
+// ============================================================================
+// LAZY SOLUTIONS FOR BUGGY IMPLEMENTATIONS
+// NO PENNY NO EPIPHANY
+// ============================================================================
+
+// ============================================================================
+// Function: fixColumnCD
+// Description: Fills down column CD in "Form responses 1" with IFS formula
+//              if Fakultas and Prodi exist but minimum score is missing.
+// ============================================================================
+function fixColumnCD() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Form responses 1");
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Sheet "Form responses 1" not found!');
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert("No data rows found to fill formula.");
+    return;
+  }
+
+  const formula = `=IFS(
+    BZ2:BZ="D3",400,
+    BZ2:BZ="D4",427,
+    BZ2:BZ="S1",427,
+    BZ2:BZ="S2",450,
+    BZ2:BZ="S3",475
+  )`;
+
+  // Set formula in CD2
+  sheet.getRange("CD2").setFormula(formula);
+
+  // Auto-fill down from CD2 to last row
+  sheet.getRange("CD2").autoFill(sheet.getRange("CD2:CD" + lastRow), SpreadsheetApp.AutoFillSeries.DEFAULT_SERIES);
+
+  SpreadsheetApp.getUi().alert(`Column CD filled with IFS formula down to row ${lastRow}`);
 }
