@@ -1274,18 +1274,39 @@ const SHEET_INITIALIZATIONS = [
   
 
 
+// ============================================================================
 // setupDropdowns.gs
+// ---------------------------------------------------------------------------
+// Centralizes dropdown list creation across sheets. Each dropdown is
+// configured via DROPDOWN_CONFIG, which specifies:
+//   [sheetName, column letter, options array, keyColumn?]
+// - sheetName: Target sheet where dropdowns are applied
+// - column letter: Column where dropdown will appear
+// - options array: List of allowed values in the dropdown
+// - keyColumn (optional): Data anchor column; dropdown only applies to rows
+//   where this column has content (defaults to column C = 3).
+//
+// The script applies data validation rules dynamically, so dropdowns only
+// appear on “active” rows (rows where keyColumn is filled, the default is column 3 = C).
+// ============================================================================
 
-/**
- * Dropdown config: add new columns/options by expanding this array.
- * [sheetName, column letter, options array, keyColumn (default: 3 = C)]
- */
+// ============================================================================
+// DROPDOWN CONFIGURATION
+// Format: [sheetName, columnLetter, optionsArray]
+// Validation applies only where column C (default key column) is non-empty.
+// ============================================================================
 const DROPDOWN_CONFIG = [
     ['Form responses 1', "V", ['Yes', 'No', 'Tidak Jadi Tes']],
     ['Form responses 1', "AG", ['Sent', 'Confirmed', 'Sent-No Answer']],
     ['Form responses 1', "AX", ['LUNAS', 'OKE', '😡', 'CEK', 'Nama Beda', 'Tidak Ada Nama', 'PALSU', 'SALAH BUKTI', 'Jumlah Salah', 'Pindah Pelatihan']]
   ];
   
+// ---------------------------------------------------------------------------
+// setupAllDropdowns()
+// Reads the global DROPDOWN_CONFIG and applies dropdown rules to each
+// configured sheet/column. Ensures validation is only applied to rows
+// where the key column (default C) is non-empty.
+// ---------------------------------------------------------------------------
   function setupAllDropdowns() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     DROPDOWN_CONFIG.forEach(cfg => {
@@ -1318,7 +1339,11 @@ const DROPDOWN_CONFIG = [
     });
   }
   
-  // Helper: Convert 'AX' => 50, etc
+// ---------------------------------------------------------------------------
+// Helper: toColNum()
+// Converts an A1-style column label (e.g. "AX") to a numeric index.
+// Example: "A" -> 1, "Z" -> 26, "AX" -> 50
+// ---------------------------------------------------------------------------
   function toColNum(colA) {
     let base = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let num = 0;
@@ -1328,7 +1353,11 @@ const DROPDOWN_CONFIG = [
     return num;
   }
   
-  // Helper: get last row with data in given col (defaults to C)
+// ---------------------------------------------------------------------------
+// Helper: getLastNonEmptyRow()
+// Returns the last row that has a value in the given column.
+// Defaults to column C if no column is provided.
+// ---------------------------------------------------------------------------
   function getLastNonEmptyRow(sheet, col = 3) {
     const values = sheet.getRange(2, col, sheet.getLastRow() - 1, 1).getValues().map(r => r[0]);
     for (let i = values.length - 1; i >= 0; i--) {
@@ -1336,7 +1365,6 @@ const DROPDOWN_CONFIG = [
     }
     return 2;
   }
-
 
 
 // ============================================================================
