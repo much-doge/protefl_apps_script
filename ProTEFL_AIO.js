@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * ProTEFL MDMA ⚡ - Google Sheets Admin Scripts
+ * ProTEFL MDMA ⚡ - Google Sheets Apps Script(s)
  * =============================================================================
  *
  * Copyright (c) 2025 Nur Eko Windianto (ne.windianto@gmail.com)
@@ -20,19 +20,26 @@
  * =============================================================================
  */
 
-// main.gs
-/**
- * Main admin orchestrator for ProTEFL registration workbook.
- * Run this function to set up or refresh everything.
- */
+
+// ============================================================================
+// File: main.gs
+// 
+// MAIN ORCHESTRATOR
+// Entry point to set up or refresh the entire ProTEFL Montly Data Management Admin workbook.
+// Run this only when initializing or re-initializing (destructive).
+// ============================================================================
 function main() {
-  initializeSheets();              // Create sheets and populate with initial headers/templates
   setupAllDropdowns();             // Add dropdown validations to relevant columns
   protectOriginalScheduleColumn(); // Lock the "Original Schedule" column against edits
   applyAllStyling();               // Apply consistent header fonts, colors, widths, etc.
   applyAllFormulas();              // Insert and/or fill down configured formulas
+  initializeSheets();              // Create sheets and populate headers/templates
+  setupAllDropdowns();             // Add dropdown validations
+  protectOriginalScheduleColumn(); // Lock the "Original Schedule" column (R)
+  applyAllStyling();               // Apply header fonts, widths, colors
+  applyAllFormulas();              // Insert all ARRAY/FILLDOWN formulas
   setupDefaultViewTrigger();       // Ensure Default View trigger is installed
-  installRescheduleTrigger();      // Ensure auto counter trigger is installed
+  installRescheduleTrigger();      // Ensure reschedule auto-counter trigger
 }
 
 // ======================
@@ -114,9 +121,6 @@ function setupAutoCounterTriggerWithAlert() {
   }
 }
 
-// ======================
-// TRIGGER MANAGEMENT
-// ======================
 function setupAutoCounterTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (trigger.getHandlerFunction() === "onEditLogReschedule") ScriptApp.deleteTrigger(trigger);
@@ -141,6 +145,7 @@ function setupDefaultViewTrigger() {
 function onOpenDefaultView() {
   toggleDefaultView(true);
 }
+
 
 function downloadVCFFromMenu() {
   const ui = SpreadsheetApp.getUi();
