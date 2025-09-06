@@ -32,6 +32,7 @@ function main() {
   applyAllStyling();               // Apply consistent header fonts, colors, widths, etc.
   applyAllFormulas();              // Insert and/or fill down configured formulas
   setupDefaultViewTrigger();       // Ensure Default View trigger is installed
+  installRescheduleTrigger();      // Ensure auto counter trigger is installed
 }
 
 // ======================
@@ -1785,12 +1786,65 @@ function getLastDataRow_(sheet, keyCol = 3) {
   }
 
 
-// autoCounters.gs
+// ============================================================================
+// File: autoCounters.gs
+// Purpose:
+//   - Protect "Original Schedule" column (R) so only the owner can edit.
+//   - Automatically log reschedules in column X and count them in column Y.
+//   - Provide utilities to sync or reset reschedule counters.
+//
+// Target Sheet: "Form responses 1"
+//
+// Column Mapping:
+//   C (3)  - Name / Identifier (row in use check)
+//   R (18) - Original Schedule (protected column)
+//   V (22) - Reschedule Flag ("Yes" or blank)
+//   W (23) - New Schedule
+//   X (24) - Reschedule Log (semicolon-separated history of W)
+//   Y (25) - Reschedule Count (number of entries in X)
+//
+// Workflow:
+//   1. Run protectOriginalScheduleColumn() once or periodically to ensure
+//      column R stays locked for everyone except the owner.
+//   2. Run installRescheduleTrigger() once to set up the onEdit trigger
+//      that watches V/W/X changes and updates logs/counts.
+//   3. onEditLogReschedule(e) runs automatically whenever a relevant edit
+//      happens in "Form responses 1".
+//   4. If logs and counts ever go out of sync, run syncRescheduleCounts()
+//      to recalculate counts in column Y from the log in column X.
+//
+// Notes:
+//   - This script is safe to re-run: protections and triggers are cleared
+//     and re-installed cleanly.
+//   - Reschedule log (X) stores history; last entry reflects the most recent
+//     schedule in W when V == "Yes".
+// ============================================================================
 
-/**
- * Protects column R (Original Schedule) in Form responses 1 for all except the owner.
- * Run this once or periodically in your admin script.
- */
+// ---------------------------------------------------------------------------
+// installRescheduleTrigger()
+// Installs the onEdit trigger for reschedule logging.
+// Removes old triggers first, then creates a fresh one.
+// ---------------------------------------------------------------------------
+function installRescheduleTrigger() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Remove any existing triggers for this function
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (trigger.getHandlerFunction() === "onEditLogReschedule") {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  // Create a fresh one
+  ScriptApp.newTrigger("onEditLogReschedule")
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+}
+
+// ---------------------------------------------------------------------------
+// protectOriginalScheduleColumn()
+// Protects column R (Original Schedule).
+// Ensures only the sheet owner can edit it.
+// ---------------------------------------------------------------------------
 function protectOriginalScheduleColumn() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Form responses 1');
@@ -1813,9 +1867,13 @@ function protectOriginalScheduleColumn() {
   }
   
   
-  /**
-   * onEdit trigger: When V or W is changed, update reschedule log (column X) and count (column Y).
-   */
+// ---------------------------------------------------------------------------
+// onEditLogReschedule(e)
+// Triggered on sheet edits.
+// - If V="Yes", appends W into log (X) and updates count (Y).
+// - If V!="Yes", clears log (X) and count (Y).
+// - If X is edited manually, recounts Y.
+// ---------------------------------------------------------------------------
   function onEditLogReschedule(e) {
     var range = e.range;
     var sheet = range.getSheet();
@@ -1865,10 +1923,11 @@ function protectOriginalScheduleColumn() {
     }
   }
   
-  /**
-   * (Recommended)
-   * Optionally run onOpen to make sure all reschedule counts (column Y) match log (column X) for all filled rows.
-   */
+// ---------------------------------------------------------------------------
+// syncRescheduleCounts()
+// Syncs all counts in Y with logs in X.
+// Run onOpen or periodically to fix inconsistencies.
+// ---------------------------------------------------------------------------
   function syncRescheduleCounts() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Form responses 1');
