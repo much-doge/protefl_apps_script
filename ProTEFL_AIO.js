@@ -1339,22 +1339,68 @@ const DROPDOWN_CONFIG = [
 
 
 
-// applyFormulas.gs
+// ============================================================================
+// File: applyFormulas.gs
+// ---------------------------------------------------------------------------
+// Purpose:
+//   Centralizes all formula management for the ProTEFL workbook. This ensures
+//   that key computed columns (like derived schedules, participant metadata,
+//   WA messages, exports for SISTER, SIAKAD, CERTIFICATE etc.) are always present and updated
+//   even if users accidentally clear them (in the case of SORT/FILTER FUNCTIONS). 
+//   Drag down formulas need to be reapplied manually/via menu when accidentally deleted.
+//
+// Key Features:
+//   - Utilities to detect last row of data, set persistent ARRAYFORMULAs,
+//     and fill down row-level formulas dynamically.
+//   - Single configuration array (`FORMULAS_TO_APPLY`) listing every formula
+//     to be managed, with sheet, location, type, and logic in one place.
+//   - Distinguishes between:
+//       • ARRAY formulas → written once at a fixed anchor cell.
+//       • FILLDOWN formulas → written row by row, tied to a key column.
+//   - Main entrypoint `applyAllFormulas()` loops through config and re-applies
+//     as needed.
+//
+// How it works:
+//   1. Helpers:
+//       - `getLastDataRow_(sheet, keyCol)` → Finds last non-empty row
+//         using a key column (default col C).
+//       - `setFormulaOnce(sheet, cellA1, formula)` → Ensures ARRAYFORMULA
+//         exists in anchor cell.
+//       - `fillDownFormula(sheet, startA1, baseFormula, keyCol)` → Expands
+//         formula row by row, adjusting relative references.
+//   2. Configuration: `FORMULAS_TO_APPLY` is a giant list of sheet/column
+//      mappings that describe what formula goes where.
+//   3. Execution: `applyAllFormulas()` loops through config and applies each
+//      entry automatically.
+//
+// Usage:
+//   - Run `applyAllFormulas()` directly to refresh all sheets.
+//   - Or let `main()` handle it automatically during initialization.
+// ============================================================================
 
-/** Utility: get last non-empty row based on 'keyColumn' (default = col C) */
+// ---------------------------------------------------------------------------
+// Utility: getLastDataRow_()
+// Find last non-empty row in sheet based on a key column (default col C)
+// ---------------------------------------------------------------------------
 function getLastDataRow_(sheet, keyCol = 3) {
     const vals = sheet.getRange(2, keyCol, Math.max(sheet.getLastRow()-1, 1)).getValues().flat();
     for (let i = vals.length - 1; i >= 0; i--) if (vals[i] !== "") return i + 2;
     return 2;
   }
   
-  /** Utility: set ARRAYFORMULA at target cell if not present or formula deleted */
+// ---------------------------------------------------------------------------
+// Utility: setFormulaOnce()
+// Ensures ARRAYFORMULA exists at target cell
+// ---------------------------------------------------------------------------
   function setFormulaOnce(sheet, cellA1, formula) {
     if (sheet.getRange(cellA1).getFormula() !== formula)
       sheet.getRange(cellA1).setFormula(formula);
   }
   
-  /** Utility: for dragdown formulas (per-row), sets on every non-empty keyCol row */
+// ---------------------------------------------------------------------------
+// Utility: fillDownFormula()
+// For drag-down style row formulas. Expands across all rows where keyCol filled
+// ---------------------------------------------------------------------------
   function fillDownFormula(sheet, startA1, baseFormula, keyCol) {
     let col = sheet.getRange(startA1).getColumn();
     let startRow = sheet.getRange(startA1).getRow();
@@ -1373,9 +1419,13 @@ function getLastDataRow_(sheet, keyCol = 3) {
     }
   }
   
-  // ----- CONFIG SECTION: Add all formulas below (sheetName, cellA1, type, formula, optional: keyColumn) -----
+// ---------------------------------------------------------------------------
+// CONFIG: FORMULAS_TO_APPLY
+// Master list of all formulas for all sheets
+// Format: [sheetName, cellA1, type ("ARRAY"/"FILLDOWN"), formula, keyCol?]
+// ---------------------------------------------------------------------------
   const FORMULAS_TO_APPLY = [
-    // == Form responses 1 ==
+  // == Form responses 1 ==
     ['Form responses 1', 'Z2',   "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", R2:R, ""))`],
     ['Form responses 1', 'AA2',  "ARRAY", `=ARRAYFORMULA(
       IF(C2:C<>"", IFERROR(
@@ -1621,14 +1671,14 @@ function getLastDataRow_(sheet, keyCol = 3) {
     )`],
     ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15"), "AFT", "MOR"))`],
 
-    // ====== OTHER SHEETS ======
+  // ====== OTHER SHEETS ======
 
-    // 02. CEKTESTHISTORY
+  // 02. CEKTESTHISTORY
     ['02. CEKTESTHISTORY', 'A2', "ARRAY", `=ARRAYFORMULA('Form responses 1'!AJ2:AJ)`],
     ['02. CEKTESTHISTORY', 'B2', "ARRAY", `=ARRAYFORMULA( IF( 'Form responses 1'!BO2:BO="ijazah/test x5/angkatan lama", IF( LEN('Form responses 1'!AI2:AI)=11, 'Form responses 1'!AI2:AI, IF( 'Form responses 1'!C2:C="ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)", "Peserta TKBI/UMUM", IF( 'Form responses 1'!C2:C="ProTEFL SIAKAD UNY (tanpa sertifikat)", "Error: CEK NIM", "" ) ) ), "" ) )`],
     ['02. CEKTESTHISTORY', 'D2', "ARRAY", `=ARRAYFORMULA( IF( B2:B<>"", SCAN( 0, B2:B, LAMBDA(acc, x, IF(x<>"", acc+1, acc) ) ), "" ) )`],
 
-    // 03. KIRIM DATA KE PAK BIN H-1
+  // 03. KIRIM DATA KE PAK BIN H-1
     ['03. KIRIM DATA KE PAK BIN H-1', 'A2', "ARRAY", `=SORT(FILTER('Form responses 1'!AI2:AL, (NOT(ISNA('Form responses 1'!AL2:AL))) * ('Form responses 1'!AL2:AL <> "")), 4, TRUE)`],
     ['03. KIRIM DATA KE PAK BIN H-1', 'F2', "ARRAY", `=ARRAYFORMULA(
     LET(
@@ -1649,13 +1699,13 @@ function getLastDataRow_(sheet, keyCol = 3) {
     )
     )`],
 
-    // 04. BUAT PRESENSI DAN GRUP WA H-1
+  // 04. BUAT PRESENSI DAN GRUP WA H-1
     ['04. BUAT PRESENSI DAN GRUP WA H-1', 'B2', "ARRAY", `=SORT(FILTER({'Form responses 1'!B2:B, 'Form responses 1'!AI2:AI, 'Form responses 1'!AJ2:AJ, 'Form responses 1'!AT2:AT, 'Form responses 1'!AL2:AL, 'Form responses 1'!AO2:AO, 'Form responses 1'!BD2:BD},
     (NOT(ISNA('Form responses 1'!AL2:AL))) * ('Form responses 1'!AL2:AL <> "")),
     5, TRUE, 6, TRUE, 3, TRUE)`],
     ['04. BUAT PRESENSI DAN GRUP WA H-1', 'Q2', "ARRAY", `=FILTER(A2:E, COUNTIFS(C2:C, C2:C, D2:D, D2:D) > 1)`],
 
-    // 05. DATASERTIFIKAT
+  // 05. DATASERTIFIKAT
     ['05. DATASERTIFIKAT', 'B2', "ARRAY", `=SORT(FILTER({
         'Form responses 1'!AL2:AL,  
         'Form responses 1'!B2:B,  
@@ -1678,7 +1728,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
         'Form responses 1'!CH2:CH  
         }, REGEXMATCH('Form responses 1'!AQ2:AQ, "T_")), 1, TRUE)`],
 
-    // 06. UPLOADSKOR
+  // 06. UPLOADSKOR
     ['06. UPLOADSKOR', 'B2', "ARRAY", `=SORT(
         FILTER(
           {
@@ -1722,7 +1772,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
         ),
         1, TRUE, 2, TRUE
       )`],
-    // 07. UPLOADSISTER
+  // 07. UPLOADSISTER
     ['07. UPLOADSISTER', 'A2', "ARRAY", `=SORT(
     FILTER(
         { 'Form responses 1'!BQ2:BQ,  
@@ -1738,7 +1788,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ),  
     1, TRUE
     )`],
-    // 08. DATAKUITANSI
+  // 08. DATAKUITANSI
     ['08. DATAKUITANSI', 'A2', "ARRAY", `=SORT(
         FILTER({
           IF('Form responses 1'!AI2:AI<>"", "__", ""),
@@ -1770,20 +1820,36 @@ function getLastDataRow_(sheet, keyCol = 3) {
       )`],
     ];
   
-  // === Main function ===
-  function applyAllFormulas() {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    FORMULAS_TO_APPLY.forEach(row => {
-      var [sheetName, cellA1, type, formula, keyCol] = row;
-      var sheet = ss.getSheetByName(sheetName);
-      if (!sheet) return;
-      if (type === "ARRAY") {
-        setFormulaOnce(sheet, cellA1, formula);
-      } else if (type === "FILLDOWN") {
-        fillDownFormula(sheet, cellA1, formula, keyCol || 3);
-      }
-    });
-  }
+// ---------------------------------------------------------------------------
+// applyAllFormulas()
+// Loops through the central FORMULAS_TO_APPLY configuration and ensures
+// each formula is inserted in its correct sheet and cell. Supports two types:
+//   - ARRAY: sets a single ARRAYFORMULA at the given anchor cell
+//   - FILLDOWN: fills a formula down column rows based on a key column
+// ---------------------------------------------------------------------------
+function applyAllFormulas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Iterate through all configured formulas
+  FORMULAS_TO_APPLY.forEach(row => {
+    var [sheetName, cellA1, type, formula, keyCol] = row;
+
+    // Skip if target sheet does not exist
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return;
+
+    // Dispatch based on formula type
+    if (type === "ARRAY") {
+      // Insert ARRAYFORMULA once into the anchor cell
+      setFormulaOnce(sheet, cellA1, formula);
+
+    } else if (type === "FILLDOWN") {
+      // Fill the formula down to all non-empty rows
+      // Default key column = 3 (column C) if none provided
+      fillDownFormula(sheet, cellA1, formula, keyCol || 3);
+    }
+  });
+}
 
 
 // ============================================================================
@@ -1948,7 +2014,7 @@ function protectOriginalScheduleColumn() {
 //   Provides consistent visual formatting across all target sheets in the
 //   ProTEFL registration workbook. This script centralizes color-banding,
 //   header styling, and text contrast logic so that the UI is both readable
-//   and visually structured for administrators and participants.
+//   and visually structured for administrators.
 //
 // Key Features:
 //   - Applies bold styling to header rows.
