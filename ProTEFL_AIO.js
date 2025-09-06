@@ -83,11 +83,11 @@ function onOpen() {
   toggleDefaultView(true); // Always open default view on launch
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // MENU ACTION WRAPPERS
 // Safe prompts before executing styling, formula injection, or initialization.
 // Prevents accidental destructive changes.
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 /** Ask confirmation before reapplying styles */
 function applyAllStylingWithConfirm() {
@@ -137,11 +137,11 @@ function setupAutoCounterTriggerWithAlert() {
   }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // TRIGGER MANAGEMENT
 // Installs or refreshes installable triggers for auto counter logging
 // and opening the default view.
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 /** Replace existing reschedule trigger with a fresh one */
 function setupAutoCounterTrigger() {
@@ -172,7 +172,7 @@ function onOpenDefaultView() {
   toggleDefaultView(true);
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // CUSTOM VIEWS (Optimized, Reliable Toggle)
 // Central engine for hiding/showing specific column sets per view. 
 // - Persists current view in DocumentProperties
@@ -186,7 +186,7 @@ function onOpenDefaultView() {
 // * @param {function} sidebarFn Optional sidebar renderer for this view
 // * @param {string} label       Unique view identifier
 // * @param {boolean} forceOn    Force view on (bypass toggle logic)
-// =============================================================================
+// ----------------------------------------------------------------------------
 function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return;
@@ -227,10 +227,10 @@ function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
   if (label === "Default") setupDefaultViewTrigger();
 }
 
-// ============================================================================
+// ............................................................................
 // INDIVIDUAL VIEW TOGGLES
 // Each defines which columns stay visible and which sidebar to launch.
-// ============================================================================
+// ............................................................................
 
 /** Show lean "Default" view (basic registration essentials) */
 function toggleDefaultView(forceOn) {
@@ -274,6 +274,7 @@ function toggleGroupingContactsView() {
 
 
 // ============================================================================
+// File: utilities.gs
 // UTILITIES (Shared Tools & Export Features)
 // Core utilities that streamline recurring admin tasks across the ProTEFL 
 // registration workbook. These functions are not "small helpers" — they 
@@ -375,12 +376,12 @@ function downloadVCFFromMenu() {
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(200), "VCF Download");
 }
 
-// -----------------------------------------------------------------------------
+// ............................................................................
 // CORE VCF EXPORT FUNCTION
 // Filters "Form responses 1" by selected Tanggal Tes (column BJ), extracts the
 // VCF block (column BG), and saves the .vcf file into "ProTEFL VCFs" folder.
 // Returns { success: bool, url?: string, message?: string }.
-// -----------------------------------------------------------------------------
+// ............................................................................
 function exportVCF(selection) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
   var data = sheet.getDataRange().getValues();
@@ -421,11 +422,11 @@ function exportVCF(selection) {
   return { success: true, url: file.getUrl() };
 }
 
-// -----------------------------------------------------------------------------
+// ............................................................................
 // DIALOG RENDERER (Alternative)
 // Shows a styled modal dialog for export results. Can be used by other export
 // functions too, not only VCF.
-// -----------------------------------------------------------------------------
+// ............................................................................
 function showVCFExportDialog(result) {
   let htmlContent;
   if (!result.success) {
@@ -459,11 +460,25 @@ function showVCFExportDialog(result) {
 }
 
 
-// ======================
+// -----------------------------------------------------------------------------
 // EXPORT PARTICIPANT TEST IDS TO EXCEL
-// ======================
+//
+// This function prompts the admin for a test date (YYYYMMDD),
+// then filters participant data for that date and exports selected
+// columns (AI–AL) into a downloadable Excel file (.xlsx).
+//
+// Workflow:
+//   1. Prompt admin for test date.
+//   2. Grab "Form responses 1" data and filter by test date (col: "Kode Masuk Tes ProTEFL").
+//   3. Collect only specific columns (AI–AL).
+//   4. Build an inline HTML modal with SheetJS.
+//   5. If data exists → show "Download Excel" button.
+//      If not → show error and tip.
+// -----------------------------------------------------------------------------
 function exportParticipantTestIds() {
   const ui = SpreadsheetApp.getUi();
+
+  // Step 1: Ask for test date
   const response = ui.prompt(
     "Enter Test Date (YYYYMMDD)",
     "Provide test date:",
@@ -476,18 +491,24 @@ function exportParticipantTestIds() {
   const sheet = ss.getSheetByName("Form responses 1");
   if (!sheet) return ui.alert("Target sheet not found.");
 
+  // Step 2: Fetch data + header
   const data = sheet.getDataRange().getValues();
   const header = data.shift();
-  const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL");
-  const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_);
+  const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL"); // column with YYYYMMDD test date
+  const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_); // only export these columns
 
   if (dateColIndex === -1) return ui.alert("Test Date column not found.");
 
+  // Step 3: Filter rows by test date
   const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
+
+  // Step 4: Prepare export array (include header if data exists)
   const exportData = filtered.length === 0 ? [] : [targetCols.map(i => header[i-1])];
   filtered.forEach(row => exportData.push(targetCols.map(i => row[i-1])));
 
-  // Inline HTML dialog (styled like VCF modal)
+  // Step 5: Inline HTML modal (with SheetJS)
+  // - If no data: show ❌ error
+  // - If data exists: show ✅ success and enable Excel download
   let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -533,9 +554,13 @@ function exportParticipantTestIds() {
     </html>
   `;
 
-  ui.showModalDialog(HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250), "Export Participant Test IDs");
+  // Step 6: Show modal
+  ui.showModalDialog(
+    HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250),
+    "Export Participant Test IDs"
+  );
 }
-//EXP
+
 
 
 // ======================
