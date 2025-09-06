@@ -49,7 +49,7 @@ function onOpen() {
           SpreadsheetApp.getUi()
            .createMenu("Export")
            .addItem("Participant Test IDs", "exportParticipantTestIds"))
-	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
+      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
@@ -288,7 +288,7 @@ function toggleDefaultView(forceOn) {
 }
 
 function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO"];
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
@@ -330,45 +330,6 @@ function letterToColumn_(letter) {
 // ======================
 // DOWNLOAD VCF
 // ======================
-function downloadVCFFromMenu() {
-  const ui = SpreadsheetApp.getUi();
-  const response = ui.prompt(
-    "Enter Test Date (YYYY-MM-DD)",
-    "Provide test date to download VCF:",
-    ui.ButtonSet.OK_CANCEL
-  );
-
-  if (response.getSelectedButton() != ui.Button.OK) return;
-  const dateFilter = response.getResponseText().trim();
-
-  const result = exportVCF(dateFilter);
-  showVCFExportDialog(result);
-}
-
-function exportVCF(selection) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  const data = sheet.getDataRange().getValues();
-  const header = data.shift();
-
-  const bjIndex = header.indexOf("Tanggal tes");
-  const bgIndex = header.indexOf("Grouping VCF");
-  if (bjIndex === -1 || bgIndex === -1) return { success: false, message: "Columns not found." };
-
-  const filtered = data.filter(row => row[bjIndex] === selection);
-  if (filtered.length === 0) {
-    return { 
-      success: false, 
-      message: `No entries found for the test date "${selection}". Check column BJ ('Tanggal tes') for existing dates (format: yyyy-mm-dd).` 
-    };
-  }
-
-  const vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
-  const blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
-  const file = DriveApp.createFile(blob);
-
-  return { success: true, url: file.getUrl() };
-}
-
 function showVCFExportDialog(result) {
   let htmlContent;
   if (!result.success) {
@@ -408,103 +369,74 @@ function exportParticipantTestIds() {
   const ui = SpreadsheetApp.getUi();
   const response = ui.prompt(
     "Enter Test Date (YYYYMMDD)",
-    "Provide test date to export Participant Test IDs:",
+    "Provide test date:",
     ui.ButtonSet.OK_CANCEL
   );
-
   if (response.getSelectedButton() != ui.Button.OK) return;
+
   const dateFilter = response.getResponseText().trim();
-
-  const result = exportTestIdsToExcel(dateFilter);
-  showExcelExportDialog(result);
-}
-
-function exportTestIdsToExcel(dateFilter) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Form responses 1");
-  if (!sheet) return { success: false, message: "Target sheet not found." };
+  if (!sheet) return ui.alert("Target sheet not found.");
 
   const data = sheet.getDataRange().getValues();
   const header = data.shift();
+  const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL");
+  const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_);
 
-  const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL"); // Test Date column
-  const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_); // Export AI-AL
-
-  if (dateColIndex === -1) return { success: false, message: "Test Date column not found." };
+  if (dateColIndex === -1) return ui.alert("Test Date column not found.");
 
   const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
-  if (filtered.length === 0) return { success: false, message: `No entries found for "${dateFilter}".` };
-
-  // Create temporary sheet for export
-  const tempSS = SpreadsheetApp.create("Temp_Export_" + dateFilter);
-  const tempSheet = tempSS.getActiveSheet();
-
-  // Prepare export data
-  const exportData = [targetCols.map(i => header[i-1])]; // header row
+  const exportData = filtered.length === 0 ? [] : [targetCols.map(i => header[i-1])];
   filtered.forEach(row => exportData.push(targetCols.map(i => row[i-1])));
 
-  tempSheet.getRange(1,1,exportData.length, exportData[0].length).setValues(exportData);
+  // Inline HTML dialog (styled like VCF modal)
+  let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Download Excel</title>
+        <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+        <style>
+          body { font-family: 'Google Sans', Arial, sans-serif; padding: 20px; color:#222; }
+          .container { padding:20px; border-radius:8px; line-height:1.5; box-shadow:0 2px 5px rgba(0,0,0,0.15); }
+          .success { background:#edf2fa; color:#222; }
+          .error { background:#f8f9fa; color:#222; }
+          h2 { margin-top:0; }
+          .btn { display:inline-block; padding:8px 12px; background:#1e88e5; color:white; border-radius:6px; text-decoration:none; cursor:pointer; }
+          .tip { font-size:12px; color:#555; margin-top:8px; }
+        </style>
+      </head>
+      <body>
+        ${
+          exportData.length === 0
+          ? `<div class="container error">
+               <h2 style="color:#d32f2f;">❌ Export Failed</h2>
+               <p>No entries found for "<b>${dateFilter}</b>".</p>
+               <p class="tip">Tip: Check your filter value and make sure it exists in column AL (format: YYYYMMDD).</p>
+               <button onclick="google.script.host.close()" class="btn">Close</button>
+             </div>`
+          : `<div class="container success">
+               <h2 style="color:#1e88e5;">✅ Data Ready!</h2>
+               <p>${exportData.length - 1} rows will be exported for "<b>${dateFilter}</b>"</p>
+               <button id="downloadBtn" class="btn">Download Excel</button>
+             </div>
+             <script>
+               const exportData = ${JSON.stringify(exportData)};
+               document.getElementById("downloadBtn").addEventListener("click", () => {
+                 const wb = XLSX.utils.book_new();
+                 const ws = XLSX.utils.aoa_to_sheet(exportData);
+                 XLSX.utils.book_append_sheet(wb, ws, "ParticipantTestIDs");
+                 XLSX.writeFile(wb, \`Participant_TestIDs_${dateFilter}.xlsx\`);
+               });
+             </script>`
+        }
+      </body>
+    </html>
+  `;
 
-  // Export as XLSX
-  const xlsxBlob = DriveApp.getFileById(tempSS.getId())
-    .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    .setName(`Participant_TestIDs_${dateFilter}.xlsx`);
-
-  // Save to folder
-  const folderName = "Data Peserta";
-  let folder = DriveApp.getFoldersByName(folderName);
-  folder = folder.hasNext() ? folder.next() : DriveApp.createFolder(folderName);
-  const file = folder.createFile(xlsxBlob);
-
-  // Delete temporary spreadsheet
-  DriveApp.getFileById(tempSS.getId()).setTrashed(true);
-
-  return { success: true, url: file.getUrl() };
-}
-
-// Convert array to CSV string (for Excel blob)
-function arrayToCsv(data) {
-  return data.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");
-}
-
-// Show Excel export dialog (styled like VCF)
-function showExcelExportDialog(result) {
-  let htmlContent;
-  
-  if (!result.success) {
-    htmlContent = `
-      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#f8f9fa; color:#222;">
-        <h2 style="margin-top:0; color:#d32f2f;">❌ Export Failed</h2>
-        <p style="font-size:14px; line-height:1.5;">${result.message}</p>
-        <p style="font-size:12px; color:#555;">Tip: Check your filter value and make sure it exists in column AL (format: YYYYMMDD)</p>
-      </div>
-    `;
-  } else {
-    // Convert URL to Drive preview link
-    const fileIdMatch = result.url.match(/[-\w]{25,}/);
-    const previewUrl = fileIdMatch ? `https://drive.google.com/file/d/${fileIdMatch[0]}/view` : result.url;
-
-    htmlContent = `
-      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#edf2fa; color:#222;">
-        <h2 style="margin-top:0; color:#1e88e5;">✅ Excel Created!</h2>
-        <p style="font-size:14px; line-height:1.5;">Your Participant Test IDs have been exported to Excel.</p>
-        <p style="margin-top:12px;">
-          <a href="${previewUrl}" target="_blank" 
-             style="display:inline-block;padding:8px 12px;background:#1e88e5;color:white;border-radius:6px;text-decoration:none;">
-            Open / Download
-          </a>
-        </p>
-        <p style="font-size:12px; color:#555; margin-top:8px;">The file is saved in the "Data Peserta" folder.</p>
-      </div>
-    `;
-  }
-
-  SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput(htmlContent)
-      .setWidth(420)
-      .setHeight(200),
-    "Export Participant Test IDs"
-  );
+  ui.showModalDialog(HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250), "Export Participant Test IDs");
 }
 //EXP
 
