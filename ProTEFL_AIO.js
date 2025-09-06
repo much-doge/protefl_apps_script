@@ -459,9 +459,28 @@ function showVCFExportDialog(result) {
   );
 }
 
-// ======================
+// -----------------------------------------------------------------------------
 // COPY ATTENDANCE LIST FUNCTION
-// ======================
+// 
+// Purpose:
+//   Exports a tab-delimited attendance list for a given test date (YYYYMMDD) into clipboard
+//   from the "04. BUAT PRESENSI DAN GRUP WA H-1" sheet.
+//
+// Steps:
+//   1. Prompt the user for the test date (format: YYYYMMDD).
+//   2. Access the attendance sheet and pull all data.
+//   3. Filter rows by Column F ("Test Date") matching the user input.
+//   4. If no rows found → show an error modal and exit.
+//   5. Sort the filtered rows by Column G (group/class).
+//   6. Insert two blank rows whenever the value in Column G changes for clarity (differentiating each group).
+//   7. Convert the processed rows into a tab-delimited string.
+//   8. Show modal with a textarea containing the result and a "Copy to Clipboard" button.
+//
+// Notes:
+//   - Blank rows are inserted for visual separation of groups.
+//   - Designed to quickly paste data into external attendance sheets.
+//   - Row count in modal includes the inserted blank lines.
+// -----------------------------------------------------------------------------
 function copyAttendanceList() {
   const ui = SpreadsheetApp.getUi();
   const response = ui.prompt(
