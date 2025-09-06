@@ -430,29 +430,34 @@ function exportTestIdsToExcel(dateFilter) {
   const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL"); // Test Date column
   const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_); // Export AI-AL
 
-  if (dateColIndex === -1) return { success: false, message: "Test Date column (AL) not found." };
+  if (dateColIndex === -1) return { success: false, message: "Test Date column not found." };
 
-  // Filter rows matching the date
   const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
-  if (filtered.length === 0) {
-    return { 
-      success: false, 
-      message: `No entries found for the test date "${dateFilter}". Check column AL for existing test dates.` 
-    };
-  }
+  if (filtered.length === 0) return { success: false, message: `No entries found for "${dateFilter}".` };
+
+  // Create temporary sheet for export
+  const tempSS = SpreadsheetApp.create("Temp_Export_" + dateFilter);
+  const tempSheet = tempSS.getActiveSheet();
 
   // Prepare export data
   const exportData = [targetCols.map(i => header[i-1])]; // header row
   filtered.forEach(row => exportData.push(targetCols.map(i => row[i-1])));
 
-  const blob = Utilities.newBlob(arrayToCsv(exportData), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `Participant_TestIDs_${dateFilter}.xlsx`);
+  tempSheet.getRange(1,1,exportData.length, exportData[0].length).setValues(exportData);
 
-  // Save in folder "Data Peserta" (create if not exists)
+  // Export as XLSX
+  const xlsxBlob = DriveApp.getFileById(tempSS.getId())
+    .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    .setName(`Participant_TestIDs_${dateFilter}.xlsx`);
+
+  // Save to folder
   const folderName = "Data Peserta";
   let folder = DriveApp.getFoldersByName(folderName);
   folder = folder.hasNext() ? folder.next() : DriveApp.createFolder(folderName);
+  const file = folder.createFile(xlsxBlob);
 
-  const file = folder.createFile(blob);
+  // Delete temporary spreadsheet
+  DriveApp.getFileById(tempSS.getId()).setTrashed(true);
 
   return { success: true, url: file.getUrl() };
 }
