@@ -44,7 +44,6 @@ function onOpen() {
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
-      .addItem("Export VCF by Tanggal Tes", "showVCFSidebar")
       .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
       .addSeparator()
       // Risky options
