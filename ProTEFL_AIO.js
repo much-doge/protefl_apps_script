@@ -230,7 +230,17 @@ function exportVCF(selection) {
   
   var vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
   var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
-  var file = DriveApp.createFile(blob);
+
+  // --- SAVE TO SPECIFIC FOLDER ---
+  var folderName = "ProTEFL VCFs"; // change as needed
+  var folder, folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(folderName);
+  }
+
+  var file = folder.createFile(blob); // create inside folder
 
   return { success: true, url: file.getUrl() };
 }
