@@ -561,6 +561,112 @@ function exportParticipantTestIds() {
   );
 }
 
+// -----------------------------------------------------------------------------
+// EXPORT SIAKAD SCORE RESULTS TO EXCEL
+//
+// This function exports test scores from the "06. UPLOADSKOR" sheet
+// into an Excel file formatted for Siakad (student academic system).
+//
+// Workflow:
+//   1. Prompt admin for test date (YYYYMMDD).
+//   2. Filter rows in column B ("Tanggal Tes") by that date.
+//   3. Collect columns C–N (12 fields total: student data + scores).
+//   4. Build inline HTML modal using SheetJS (same style as VCF/IDs).
+//   5. If no rows match → show ❌ error + tip.
+//      If rows found → show ✅ success and provide download button.
+//   6. File is named: "DATA MHS UNTUK UPLOAD (dd-mm-yyyy).xlsx"
+// -----------------------------------------------------------------------------
+function exportSiakadScoreResults() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Step 1: Ask for test date
+  const response = ui.prompt(
+    "Siakad Score Results",
+    "Enter test date (YYYYMMDD) to export:",
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() != ui.Button.OK) return;
+
+  const dateFilter = response.getResponseText().trim();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("06. UPLOADSKOR");
+  if (!sheet) return ui.alert("Target sheet not found.");
+
+  // Step 2: Read all rows + header
+  const data = sheet.getDataRange().getValues();
+  const header = data.shift();
+  const dateColIndex = 1; // column B = "Tanggal Tes"
+  const targetCols = Array.from({length: 12}, (_, i) => i + 2); // C–N (indexes 2–13)
+
+  // Step 3: Filter by test date
+  const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
+
+  // Step 4: Prepare export array
+  const exportData = filtered.length === 0 ? [] : [targetCols.map(i => header[i])];
+  filtered.forEach(row => exportData.push(targetCols.map(i => row[i])));
+
+  // Step 5: Build inline HTML modal (VCF-style)
+  // - No rows: show ❌ failure message
+  // - Rows found: show ✅ success + download button
+  let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Download Excel</title>
+        <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+        <style>
+          body { font-family: 'Google Sans', Arial, sans-serif; padding: 20px; color:#222; }
+          .container { padding:20px; border-radius:8px; line-height:1.5; box-shadow:0 2px 5px rgba(0,0,0,0.15); }
+          .success { background:#edf2fa; color:#222; }
+          .error { background:#f8f9fa; color:#222; }
+          h2 { margin-top:0; }
+          .btn { display:inline-block; padding:8px 12px; background:#1e88e5; color:white; border-radius:6px; text-decoration:none; cursor:pointer; }
+          .tip { font-size:12px; color:#555; margin-top:8px; }
+        </style>
+      </head>
+      <body>
+        ${
+          exportData.length === 0
+          ? `<div class="container error">
+               <h2 style="color:#d32f2f;">❌ Export Failed</h2>
+               <p>No entries found for "<b>${dateFilter}</b>".</p>
+               <p class="tip">Tip: Check your filter value and make sure it exists in column B (format: YYYYMMDD).</p>
+               <button onclick="google.script.host.close()" class="btn">Close</button>
+             </div>`
+          : `<div class="container success">
+               <h2 style="color:#1e88e5;">✅ Data Ready!</h2>
+               <p>${exportData.length - 1} rows will be exported for "<b>${dateFilter}</b>"</p>
+               <button id="downloadBtn" class="btn">Download Excel</button>
+             </div>
+             <script>
+               const exportData = ${JSON.stringify(exportData)};
+               document.getElementById("downloadBtn").addEventListener("click", () => {
+                 const wb = XLSX.utils.book_new();
+                 const ws = XLSX.utils.aoa_to_sheet(exportData);
+                 XLSX.utils.book_append_sheet(wb, ws, "SiakadScores");
+
+                 // Dynamic filename with today's date (dd-mm-yyyy)
+                 const today = new Date();
+                 const dd = String(today.getDate()).padStart(2,'0');
+                 const mm = String(today.getMonth()+1).padStart(2,'0');
+                 const yyyy = today.getFullYear();
+                 XLSX.writeFile(wb, \`DATA MHS UNTUK UPLOAD (\${dd}-\${mm}-\${yyyy}).xlsx\`);
+               });
+             </script>`
+        }
+      </body>
+    </html>
+  `;
+
+  // Step 6: Show modal
+  ui.showModalDialog(
+    HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250),
+    "Export Siakad Score Results"
+  );
+}
+
+
 
 
 // ======================
@@ -1055,88 +1161,6 @@ function copyAttendanceList() {
 }
 
 
-//
-// EXPERIMENTAL
-//
-function exportSiakadScoreResults() {
-  const ui = SpreadsheetApp.getUi();
-  const response = ui.prompt(
-    "Siakad Score Results",
-    "Enter test date (YYYYMMDD) to export:",
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (response.getSelectedButton() != ui.Button.OK) return;
-
-  const dateFilter = response.getResponseText().trim();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("06. UPLOADSKOR");
-  if (!sheet) return ui.alert("Target sheet not found.");
-
-  const data = sheet.getDataRange().getValues();
-  const header = data.shift();
-  const dateColIndex = 1; // column B = tanggal tes
-  const targetCols = Array.from({length: 12}, (_, i) => i + 2); // C–N = index 2–13
-
-  const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
-  const exportData = filtered.length === 0 ? [] : [targetCols.map(i => header[i])];
-  filtered.forEach(row => exportData.push(targetCols.map(i => row[i])));
-
-  // Inline HTML dialog (VCF-style)
-  let htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Download Excel</title>
-        <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-        <style>
-          body { font-family: 'Google Sans', Arial, sans-serif; padding: 20px; color:#222; }
-          .container { padding:20px; border-radius:8px; line-height:1.5; box-shadow:0 2px 5px rgba(0,0,0,0.15); }
-          .success { background:#edf2fa; color:#222; }
-          .error { background:#f8f9fa; color:#222; }
-          h2 { margin-top:0; }
-          .btn { display:inline-block; padding:8px 12px; background:#1e88e5; color:white; border-radius:6px; text-decoration:none; cursor:pointer; }
-          .tip { font-size:12px; color:#555; margin-top:8px; }
-        </style>
-      </head>
-      <body>
-        ${
-          exportData.length === 0
-          ? `<div class="container error">
-               <h2 style="color:#d32f2f;">❌ Export Failed</h2>
-               <p>No entries found for "<b>${dateFilter}</b>".</p>
-               <p class="tip">Tip: Check your filter value and make sure it exists in column B (format: YYYYMMDD).</p>
-               <button onclick="google.script.host.close()" class="btn">Close</button>
-             </div>`
-          : `<div class="container success">
-               <h2 style="color:#1e88e5;">✅ Data Ready!</h2>
-               <p>${exportData.length - 1} rows will be exported for "<b>${dateFilter}</b>"</p>
-               <button id="downloadBtn" class="btn">Download Excel</button>
-             </div>
-             <script>
-               const exportData = ${JSON.stringify(exportData)};
-               document.getElementById("downloadBtn").addEventListener("click", () => {
-                 const wb = XLSX.utils.book_new();
-                 const ws = XLSX.utils.aoa_to_sheet(exportData);
-                 XLSX.utils.book_append_sheet(wb, ws, "SiakadScores");
-                 const today = new Date();
-                 const dd = String(today.getDate()).padStart(2,'0');
-                 const mm = String(today.getMonth()+1).padStart(2,'0');
-                 const yyyy = today.getFullYear();
-                 XLSX.writeFile(wb, \`DATA MHS UNTUK UPLOAD (\${dd}-\${mm}-\${yyyy}).xlsx\`);
-               });
-             </script>`
-        }
-      </body>
-    </html>
-  `;
-
-  ui.showModalDialog(HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250), "Export Siakad Score Results");
-}
-//
-// EXPERIMENTAL
-//
-
 
 
 // These are used to automatically populate the headers/titles inside each sheet.
@@ -1380,12 +1404,11 @@ const SHEET_INITIALIZATIONS = [
    * Optionally, you could run this on a time-driven trigger OR onOpen.
    * For now, just run initializeSheets from your "main.gs"
    */
-  
 
 
 // ============================================================================
-// setupDropdowns.gs
-// ---------------------------------------------------------------------------
+// File: setupDropdowns.gs
+// 
 // Centralizes dropdown list creation across sheets. Each dropdown is
 // configured via DROPDOWN_CONFIG, which specifies:
 //   [sheetName, column letter, options array, keyColumn?]
@@ -1399,11 +1422,11 @@ const SHEET_INITIALIZATIONS = [
 // appear on “active” rows (rows where keyColumn is filled, the default is column 3 = C).
 // ============================================================================
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // DROPDOWN CONFIGURATION
 // Format: [sheetName, columnLetter, optionsArray]
 // Validation applies only where column C (default key column) is non-empty.
-// ============================================================================
+// ----------------------------------------------------------------------------
 const DROPDOWN_CONFIG = [
     ['Form responses 1', "V", ['Yes', 'No', 'Tidak Jadi Tes']],
     ['Form responses 1', "AG", ['Sent', 'Confirmed', 'Sent-No Answer']],
@@ -1478,7 +1501,7 @@ const DROPDOWN_CONFIG = [
 
 // ============================================================================
 // File: applyFormulas.gs
-// ---------------------------------------------------------------------------
+// 
 // Purpose:
 //   Centralizes all formula management for the ProTEFL workbook. This ensures
 //   that key computed columns (like derived schedules, participant metadata,
@@ -1991,7 +2014,8 @@ function applyAllFormulas() {
 
 // ============================================================================
 // File: autoCounters.gs
-// Purpose:
+//
+//  Purpose:
 //   - Protect "Original Schedule" column (R) so only the owner can edit.
 //   - Automatically log reschedules in column X and count them in column Y.
 //   - Provide utilities to sync or reset reschedule counters.
@@ -2146,7 +2170,7 @@ function protectOriginalScheduleColumn() {
 
 // ============================================================================
 // File: styling.gs
-// ---------------------------------------------------------------------------
+//
 // Purpose:
 //   Provides consistent visual formatting across all target sheets in the
 //   ProTEFL registration workbook. This script centralizes color-banding,
