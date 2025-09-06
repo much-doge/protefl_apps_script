@@ -205,37 +205,6 @@ function downloadVCFFromMenu() {
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(200), "VCF Download");
 }
 
-function exportVCF(selection) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
-  var data = sheet.getDataRange().getValues();
-  var header = data.shift();
-  
-  var bjIndex = header.indexOf("Tanggal tes");
-  var bgIndex = header.indexOf("Grouping VCF");
-  if (bjIndex === -1 || bgIndex === -1) {
-    return { 
-      success: false, 
-      message: "Required columns not found: 'Tanggal tes' or 'Grouping VCF'. Please check your sheet headers." 
-    };
-  }
-  
-  var filtered = data.filter(row => row[bjIndex] === selection);
-  if (filtered.length === 0) {
-    return { 
-      success: false, 
-      message: `No entries found for the test date "${selection}".\n` +
-               `Check column BJ ('Tanggal tes') for existing test dates and make sure you entered the date correctly in the download dialog (format: yyyy-mm-dd).`
-    };
-  }
-  
-  var vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
-  var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
-  var file = DriveApp.createFile(blob);
-
-  return { success: true, url: file.getUrl() };
-}
-
-
 // ======================
 // CUSTOM VIEWS (Optimized, Reliable Toggle)
 // ======================
