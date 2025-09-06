@@ -39,6 +39,8 @@ function main() {
 }
 
 // ============================================================================
+// File: menu.gs
+// 
 // MENU SETUP
 // Builds the "ProTEFL Utility" custom menu with safe options, exports, risky
 // admin actions, and quick-access custom views.
@@ -176,16 +178,15 @@ function onOpenDefaultView() {
 // - Persists current view in DocumentProperties
 // - Can toggle on/off, or force re-activation
 // - Optionally launches a matching sidebar
-// ============================================================================
-
-/**
- * Core function to apply a custom view.
- * @param {string} sheetName   Target sheet name
- * @param {string[]} keepCols  Array of column letters to remain visible
- * @param {function} sidebarFn Optional sidebar renderer for this view
- * @param {string} label       Unique view identifier
- * @param {boolean} forceOn    Force view on (bypass toggle logic)
- */
+//
+//
+// * Core function to apply a custom view.
+// * @param {string} sheetName   Target sheet name
+// * @param {string[]} keepCols  Array of column letters to remain visible
+// * @param {function} sidebarFn Optional sidebar renderer for this view
+// * @param {string} label       Unique view identifier
+// * @param {boolean} forceOn    Force view on (bypass toggle logic)
+// =============================================================================
 function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return;
@@ -272,6 +273,16 @@ function toggleGroupingContactsView() {
 }
 
 
+// utilities.gs, compilation of utilities
+
+//helper
+function letterToColumn_(letter) {
+  var col = 0;
+  for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
+  return col;
+}
+
+// downloading vcf
 function downloadVCFFromMenu() {
   const ui = SpreadsheetApp.getUi();
   const response = ui.prompt("Enter Tanggal Tes (yyyy-MM-dd) to download VCF:");
@@ -380,20 +391,6 @@ function exportVCF(selection) {
 }
 
 
-
-// ======================
-// UTILITY
-// ======================
-function letterToColumn_(letter) {
-  var col = 0;
-  for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
-  return col;
-}
-
-//EXP
-// ======================
-// DOWNLOAD VCF
-// ======================
 function showVCFExportDialog(result) {
   let htmlContent;
   if (!result.success) {
@@ -425,6 +422,8 @@ function showVCFExportDialog(result) {
     "Export VCF"
   );
 }
+
+
 
 // ======================
 // EXPORT PARTICIPANT TEST IDS TO EXCEL
