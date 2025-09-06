@@ -44,6 +44,7 @@ function onOpen() {
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
+      .addItem("Export VCF by Tanggal Tes", "showVCFSidebar")
       .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
       .addSeparator()
       // Risky options
@@ -141,20 +142,64 @@ function downloadVCFFromMenu() {
   const date = response.getResponseText().trim();
 
   const result = exportVCF(date);
+
   if (!result.success) {
-    ui.alert("Error: " + result.message);
+    // Show error in HTML dialog including the entered date
+    const html = `
+      <div style="
+          font-family: 'Google Sans', Arial, sans-serif; 
+          padding:16px; 
+          line-height:1.5; 
+          background:#fefefe; 
+          color:#222; 
+          border-radius:10px; 
+          box-shadow:0 2px 5px rgba(0,0,0,0.15);
+      ">
+        <h2 style="margin-top:0; color:#c62828;">⚠️ VCF Download Error</h2>
+        <p>No entries found for the test date "<b>${date}</b>".</p>
+        <p>Check column <b>BJ</b> ('Tanggal tes') for existing test dates and make sure you entered the date correctly (format: yyyy-mm-dd).</p>
+        <button onclick="google.script.host.close()" style="
+            background:#1e88e5;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:8px 12px;
+            cursor:pointer;
+        ">Close</button>
+      </div>
+    `;
+    ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(220), "VCF Download Error");
     return;
   }
 
-  // Show a clickable download dialog
+  // Otherwise, show the download link in similar tidy style
   const html = `
-    <p>VCF file has been created in Google Drive:</p>
-    <p><a href="${result.url}" target="_blank" download>Click here to download VCF</a></p>
-    <p>Close this dialog when done.</p>
+    <div style="
+        font-family: 'Google Sans', Arial, sans-serif; 
+        padding:16px; 
+        line-height:1.5; 
+        background:#fefefe; 
+        color:#222; 
+        border-radius:10px; 
+        box-shadow:0 2px 5px rgba(0,0,0,0.15);
+    ">
+      <h2 style="margin-top:0; color:#2e7d32;">✅ VCF Created</h2>
+      <p>Your VCF file for <b>${date}</b> has been created in Google Drive.</p>
+      <p>
+        <a href="${result.url}" target="_blank" style="color:#1e88e5; text-decoration:none;">Click here to open/download the file</a>
+      </p>
+      <button onclick="google.script.host.close()" style="
+          background:#1e88e5;
+          color:white;
+          border:none;
+          border-radius:6px;
+          padding:8px 12px;
+          cursor:pointer;
+      ">Close</button>
+    </div>
   `;
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(400).setHeight(150), "VCF Ready");
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(200), "VCF Download");
 }
-
 
 function exportVCF(selection) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
@@ -163,10 +208,21 @@ function exportVCF(selection) {
   
   var bjIndex = header.indexOf("Tanggal tes");
   var bgIndex = header.indexOf("Grouping VCF");
-  if (bjIndex === -1 || bgIndex === -1) return { success: false, message: "Columns not found" };
+  if (bjIndex === -1 || bgIndex === -1) {
+    return { 
+      success: false, 
+      message: "Required columns not found: 'Tanggal tes' or 'Grouping VCF'. Please check your sheet headers." 
+    };
+  }
   
   var filtered = data.filter(row => row[bjIndex] === selection);
-  if (filtered.length === 0) return { success: false, message: "No data for selection" };
+  if (filtered.length === 0) {
+    return { 
+      success: false, 
+      message: `No entries found for the test date "${selection}".\n` +
+               `Check column BJ ('Tanggal tes') for existing test dates and make sure you entered the date correctly in the download dialog (format: yyyy-mm-dd).`
+    };
+  }
   
   var vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
   var blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
