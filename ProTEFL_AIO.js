@@ -29,10 +29,6 @@
 // Run this only when initializing or re-initializing (destructive).
 // ============================================================================
 function main() {
-  setupAllDropdowns();             // Add dropdown validations to relevant columns
-  protectOriginalScheduleColumn(); // Lock the "Original Schedule" column against edits
-  applyAllStyling();               // Apply consistent header fonts, colors, widths, etc.
-  applyAllFormulas();              // Insert and/or fill down configured formulas
   initializeSheets();              // Create sheets and populate headers/templates
   setupAllDropdowns();             // Add dropdown validations
   protectOriginalScheduleColumn(); // Lock the "Original Schedule" column (R)
