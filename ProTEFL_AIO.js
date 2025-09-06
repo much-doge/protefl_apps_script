@@ -1942,21 +1942,52 @@ function protectOriginalScheduleColumn() {
 
 
 // ============================================================================
-// styling.gs
+// File: styling.gs
 // ---------------------------------------------------------------------------
-// Provides consistent formatting across Google Sheets, especially for
-// "Form responses 1". This includes color banding, header styling, and 
-// auto-determined font contrast.
+// Purpose:
+//   Provides consistent visual formatting across all target sheets in the
+//   ProTEFL registration workbook. This script centralizes color-banding,
+//   header styling, and text contrast logic so that the UI is both readable
+//   and visually structured for administrators and participants.
+//
+// Key Features:
+//   - Applies bold styling to header rows.
+//   - Resets old formatting before applying new themes.
+//   - Adds alternating header/body color bands to "Form responses 1" using
+//     predefined palettes for easier scanning of wide tables.
+//   - Automatically adjusts font color (black or white) for readability based
+//     on background luminance.
+//   - Supports special palette overrides for specific column bands.
+//
+// How it works:
+//   1. A list of target sheets (`STYLING_TARGET_SHEETS`) defines where styling
+//      should be applied.
+//   2. For "Form responses 1", column ranges (`FORM_RESPONSES_1_COLOR_BANDS`)
+//      are styled in banded color palettes (`COLOR_PALETTES`).
+//   3. Helper functions:
+//        - `colAtoNum(colA)`: Converts "A", "Z", "AA", etc. to numeric indices.
+//        - `getAutoFontColor(bg)`: Chooses black/white text for readability.
+//   4. The main function `applyAllStyling()` orchestrates the formatting pass.
+//      It can be called manually or as part of the admin `main()` initializer.
+//
+// Usage:
+//   - Run `applyAllStyling()` directly for visual refresh.
+//   - Or, let `main()` handle it automatically when setting up the workbook.
 // ============================================================================
 
-// Target sheets where styling will be applied.
+
+// ---------------------------------------------------------------------------
+// Target sheets where styling will be applied
+// ---------------------------------------------------------------------------
 const STYLING_TARGET_SHEETS = [
   'Form responses 1',
   // Add more sheet names as needed...
 ];
 
-// Column bands (A1-style ranges) within "Form responses 1" that receive
-// alternating header/body color schemes. Each band will use a palette pair.
+
+// ---------------------------------------------------------------------------
+// Column bands in "Form responses 1" to receive alternating color schemes
+// ---------------------------------------------------------------------------
 const FORM_RESPONSES_1_COLOR_BANDS = [
   'V-AH',
   'AI-AL',
@@ -1970,8 +2001,11 @@ const FORM_RESPONSES_1_COLOR_BANDS = [
   'CH-CI'
 ];
 
-// Color palette pairs (dark = header, light = body). 
-// Colors are rotated if there are more bands than palettes.
+
+// ---------------------------------------------------------------------------
+// Color palette pairs (dark = header, light = body)
+// Rotated if there are more bands than palettes
+// ---------------------------------------------------------------------------
 const COLOR_PALETTES = [
   {header:'#1565c0', body:'#90caf9'},    // blue
   {header:'#2e7d32', body:'#a5d6a7'},    // green
@@ -1985,9 +2019,10 @@ const COLOR_PALETTES = [
   {header:'#689f38', body:'#dcedc8'},    // lime
 ];
 
+
 // ---------------------------------------------------------------------------
 // Helper: colAtoNum()
-// Converts a column label in A1 notation (e.g. "BZ") to a numeric index.
+// Converts a column label in A1 notation (e.g. "BZ") to a numeric index
 // Example: "A" -> 1, "Z" -> 26, "AA" -> 27, "BZ" -> 78
 // ---------------------------------------------------------------------------
 function colAtoNum(colA) {
@@ -1998,20 +2033,21 @@ function colAtoNum(colA) {
   return n;
 }
 
+
 // ---------------------------------------------------------------------------
 // Helper: getAutoFontColor()
 // Given a hex background color "#rrggbb", returns either black ("#212121")
-// or white ("#ffffff") based on luminance for readability.
+// or white ("#ffffff") based on luminance for readability
 // ---------------------------------------------------------------------------
 function getAutoFontColor(bg) {
   if (!bg || !bg.match(/^#[0-9a-f]{6}$/i)) return "#000000";
   let r = parseInt(bg.substr(1,2),16);
   let g = parseInt(bg.substr(3,2),16);
   let b = parseInt(bg.substr(5,2),16);
-  // Relative luminance formula (simple approximation)
-  let luma = 0.2126*r + 0.7152*g + 0.0722*b;
+  let luma = 0.2126*r + 0.7152*g + 0.0722*b; // relative luminance
   return luma < 150 ? "#ffffff" : "#212121";
 }
+
 
 // ---------------------------------------------------------------------------
 // applyAllStyling()
