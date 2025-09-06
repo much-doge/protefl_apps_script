@@ -51,6 +51,7 @@ function onOpen() {
            .addItem("Participant Test IDs", "exportParticipantTestIds")
       	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
            .addItem("Copy Attendance List", "copyAttendanceList")
+           .addItem("Export Participant Scores", "exportSiakadScoreResults")
        )
       .addSeparator()
       // Risky options
@@ -843,10 +844,6 @@ function showGroupingContactsSidebar() {
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Grouping & Contacts"));
 }
 
-
-//
-// EXPERIMENTAL
-//
 // ======================
 // COPY ATTENDANCE LIST FUNCTION
 // ======================
@@ -947,6 +944,85 @@ function copyAttendanceList() {
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(460).setHeight(350), "Copy Attendance List");
 }
 
+
+//
+// EXPERIMENTAL
+//
+function exportSiakadScoreResults() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt(
+    "Siakad Score Results",
+    "Enter test date (YYYYMMDD) to export:",
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() != ui.Button.OK) return;
+
+  const dateFilter = response.getResponseText().trim();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("06. UPLOADSKOR");
+  if (!sheet) return ui.alert("Target sheet not found.");
+
+  const data = sheet.getDataRange().getValues();
+  const header = data.shift();
+  const dateColIndex = 1; // column B = tanggal tes
+  const targetCols = Array.from({length: 12}, (_, i) => i + 2); // C–N = index 2–13
+
+  const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
+  const exportData = filtered.length === 0 ? [] : [targetCols.map(i => header[i])];
+  filtered.forEach(row => exportData.push(targetCols.map(i => row[i])));
+
+  // Inline HTML dialog (VCF-style)
+  let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Download Excel</title>
+        <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+        <style>
+          body { font-family: 'Google Sans', Arial, sans-serif; padding: 20px; color:#222; }
+          .container { padding:20px; border-radius:8px; line-height:1.5; box-shadow:0 2px 5px rgba(0,0,0,0.15); }
+          .success { background:#edf2fa; color:#222; }
+          .error { background:#f8f9fa; color:#222; }
+          h2 { margin-top:0; }
+          .btn { display:inline-block; padding:8px 12px; background:#1e88e5; color:white; border-radius:6px; text-decoration:none; cursor:pointer; }
+          .tip { font-size:12px; color:#555; margin-top:8px; }
+        </style>
+      </head>
+      <body>
+        ${
+          exportData.length === 0
+          ? `<div class="container error">
+               <h2 style="color:#d32f2f;">❌ Export Failed</h2>
+               <p>No entries found for "<b>${dateFilter}</b>".</p>
+               <p class="tip">Tip: Check your filter value and make sure it exists in column B (format: YYYYMMDD).</p>
+               <button onclick="google.script.host.close()" class="btn">Close</button>
+             </div>`
+          : `<div class="container success">
+               <h2 style="color:#1e88e5;">✅ Data Ready!</h2>
+               <p>${exportData.length - 1} rows will be exported for "<b>${dateFilter}</b>"</p>
+               <button id="downloadBtn" class="btn">Download Excel</button>
+             </div>
+             <script>
+               const exportData = ${JSON.stringify(exportData)};
+               document.getElementById("downloadBtn").addEventListener("click", () => {
+                 const wb = XLSX.utils.book_new();
+                 const ws = XLSX.utils.aoa_to_sheet(exportData);
+                 XLSX.utils.book_append_sheet(wb, ws, "SiakadScores");
+                 const today = new Date();
+                 const dd = String(today.getDate()).padStart(2,'0');
+                 const mm = String(today.getMonth()+1).padStart(2,'0');
+                 const yyyy = today.getFullYear();
+                 XLSX.writeFile(wb, \`DATA MHS UNTUK UPLOAD (\${dd}-\${mm}-\${yyyy}).xlsx\`);
+               });
+             </script>`
+        }
+      </body>
+    </html>
+  `;
+
+  ui.showModalDialog(HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250), "Export Siakad Score Results");
+}
 //
 // EXPERIMENTAL
 //
@@ -1536,10 +1612,12 @@ function getLastDataRow_(sheet, keyCol = 3) {
         BZ2=TEXT("S2","@"), 450,
         BZ2=TEXT("S3","@"), 475
       )`],
-    ['Form responses 1', 'CE2', "FILLDOWN", `=IFERROR(IFS(
-        CF2=TEXT("gris - S1","@"), 73,
-        CF2=TEXT("gris - S2","@"), 100
-      ), "0")`],
+    ['Form responses 1', 'CE2', "ARRAY", `=ARRAYFORMULA(
+    IF(CF2:CF="","",
+      IF(CF2:CF="gris - S1", 73,
+      IF(CF2:CF="gris - S2", 100,
+      0)))
+    )`],
     ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15"), "AFT", "MOR"))`],
 
     // ====== OTHER SHEETS ======
@@ -1804,93 +1882,135 @@ function protectOriginalScheduleColumn() {
   }
 
 
+// ============================================================================
 // styling.gs
+// ---------------------------------------------------------------------------
+// Provides consistent formatting across Google Sheets, especially for
+// "Form responses 1". This includes color banding, header styling, and 
+// auto-determined font contrast.
+// ============================================================================
 
+// Target sheets where styling will be applied.
 const STYLING_TARGET_SHEETS = [
-    'Form responses 1',
-    // ...other sheets...
-  ];
-  
-  const FORM_RESPONSES_1_COLOR_BANDS = [
-    'V-AH',
-    'AI-AL',
-    'AM-AR',
-    'AS-AY',
-    'AZ-BC',
-    'BD-BI',
-    'BJ-BT',
-    'BU-BY',
-    'BZ-CF',
-    'CH-CI'
-  ];
-  
-  // Pick 10 contrasting color pairs (dark for header, light for data), can use more!
-  const COLOR_PALETTES = [
-    {header:'#1565c0', body:'#90caf9'},    // blue
-    {header:'#2e7d32', body:'#a5d6a7'},    // green
-    {header:'#ad1457', body:'#f8bbd0'},    // pink
-    {header:'#6d4c41', body:'#bcaaa4'},    // brown
-    {header:'#ff8f00', body:'#ffe082'},    // amber
-    {header:'#c62828', body:'#ef9a9a'},    // red
-    {header:'#4527a0', body:'#b39ddb'},    // purple
-    {header:'#00838f', body:'#80deea'},    // teal
-    {header:'#607d8b', body:'#cfd8dc'},    // blueish grey
-    {header:'#689f38', body:'#dcedc8'},    // lime
-  ];
-  
-  // Helper: convert A1 or "BZ" etc to number
-  function colAtoNum(colA) {
-    let n=0; for(let i=0; i<colA.length; i++) n=n*26 + (colA.charCodeAt(i)-64);
-    return n;
+  'Form responses 1',
+  // Add more sheet names as needed...
+];
+
+// Column bands (A1-style ranges) within "Form responses 1" that receive
+// alternating header/body color schemes. Each band will use a palette pair.
+const FORM_RESPONSES_1_COLOR_BANDS = [
+  'V-AH',
+  'AI-AL',
+  'AM-AR',
+  'AS-AY',
+  'AZ-BC',
+  'BD-BI',
+  'BJ-BT',
+  'BU-BY',
+  'BZ-CF',
+  'CH-CI'
+];
+
+// Color palette pairs (dark = header, light = body). 
+// Colors are rotated if there are more bands than palettes.
+const COLOR_PALETTES = [
+  {header:'#1565c0', body:'#90caf9'},    // blue
+  {header:'#2e7d32', body:'#a5d6a7'},    // green
+  {header:'#ad1457', body:'#f8bbd0'},    // pink
+  {header:'#6d4c41', body:'#bcaaa4'},    // brown
+  {header:'#ff8f00', body:'#ffe082'},    // amber
+  {header:'#c62828', body:'#ef9a9a'},    // red
+  {header:'#4527a0', body:'#b39ddb'},    // purple
+  {header:'#00838f', body:'#80deea'},    // teal
+  {header:'#607d8b', body:'#cfd8dc'},    // blue grey
+  {header:'#689f38', body:'#dcedc8'},    // lime
+];
+
+// ---------------------------------------------------------------------------
+// Helper: colAtoNum()
+// Converts a column label in A1 notation (e.g. "BZ") to a numeric index.
+// Example: "A" -> 1, "Z" -> 26, "AA" -> 27, "BZ" -> 78
+// ---------------------------------------------------------------------------
+function colAtoNum(colA) {
+  let n = 0;
+  for (let i = 0; i < colA.length; i++) {
+    n = n * 26 + (colA.charCodeAt(i) - 64); // ASCII 'A' = 65
   }
-  
-  // Helper: decide text color (white for dark, black for light backgrounds)
-  function getAutoFontColor(bg) {
-    // bg: "#rrggbb"
-    if(!bg || !bg.match(/^#[0-9a-f]{6}$/i)) return "#000000";
-    let r = parseInt(bg.substr(1,2),16);
-    let g = parseInt(bg.substr(3,2),16);
-    let b = parseInt(bg.substr(5,2),16);
-    // Simple luminance algorithm
-    let luma = 0.2126*r + 0.7152*g + 0.0722*b;
-    return luma < 150 ? "#ffffff" : "#212121";
-  }
-  
-  function applyAllStyling() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    STYLING_TARGET_SHEETS.forEach(sheetName => {
-      const sheet = ss.getSheetByName(sheetName);
-      if (!sheet) return;
-      const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
-      headerRange.setFontWeight("bold");
-  
-      if (sheetName === 'Form responses 1') {
-        const lastRow = Math.max(2, sheet.getLastRow());
-        const lastCol = sheet.getLastColumn();
-        sheet.getRange(1, 1, lastRow, lastCol).setBackground(null).setFontColor("#212121");
-  
-        FORM_RESPONSES_1_COLOR_BANDS.forEach((band, idx) => {
-          let [colStart, colEnd] = band.split('-').map(colAtoNum);
-  
-          // --- PALETTE OVERRIDE for AS-AY
-          let dark, light;
-          if (band === "AS-AY") {
-            dark = "#2e7d32";
-            light = "#a5d6a7";
-          } else {
-            const palette = COLOR_PALETTES[idx % COLOR_PALETTES.length];
-            dark = palette.header;
-            light = palette.body;
-          }
-  
-          let headerFont = getAutoFontColor(dark), bodyFont = getAutoFontColor(light);
-  
-          // Header
-          sheet.getRange(1, colStart, 1, colEnd - colStart + 1).setBackground(dark).setFontColor(headerFont);
-          // Data
-          if (lastRow > 1)
-            sheet.getRange(2, colStart, lastRow - 1, colEnd - colStart + 1).setBackground(light).setFontColor(bodyFont);
-        });
-      }
-    });
-  }
+  return n;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: getAutoFontColor()
+// Given a hex background color "#rrggbb", returns either black ("#212121")
+// or white ("#ffffff") based on luminance for readability.
+// ---------------------------------------------------------------------------
+function getAutoFontColor(bg) {
+  if (!bg || !bg.match(/^#[0-9a-f]{6}$/i)) return "#000000";
+  let r = parseInt(bg.substr(1,2),16);
+  let g = parseInt(bg.substr(3,2),16);
+  let b = parseInt(bg.substr(5,2),16);
+  // Relative luminance formula (simple approximation)
+  let luma = 0.2126*r + 0.7152*g + 0.0722*b;
+  return luma < 150 ? "#ffffff" : "#212121";
+}
+
+// ---------------------------------------------------------------------------
+// applyAllStyling()
+// Applies all styling rules to target sheets. 
+// For "Form responses 1", it clears prior formatting and applies color bands
+// to specific column ranges, using palettes defined above.
+// ---------------------------------------------------------------------------
+function applyAllStyling() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  STYLING_TARGET_SHEETS.forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return;
+
+    // Bold entire header row
+    const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+    headerRange.setFontWeight("bold");
+
+    if (sheetName === 'Form responses 1') {
+      const lastRow = Math.max(2, sheet.getLastRow());
+      const lastCol = sheet.getLastColumn();
+
+      // Reset all background & font color before re-applying palettes
+      sheet.getRange(1, 1, lastRow, lastCol)
+           .setBackground(null)
+           .setFontColor("#212121");
+
+      // Apply color band styling
+      FORM_RESPONSES_1_COLOR_BANDS.forEach((band, idx) => {
+        let [colStart, colEnd] = band.split('-').map(colAtoNum);
+
+        // --- Special palette override for AS-AY (force green)
+        let dark, light;
+        if (band === "AS-AY") {
+          dark = "#2e7d32";
+          light = "#a5d6a7";
+        } else {
+          const palette = COLOR_PALETTES[idx % COLOR_PALETTES.length];
+          dark = palette.header;
+          light = palette.body;
+        }
+
+        // Pick best contrasting font color
+        let headerFont = getAutoFontColor(dark);
+        let bodyFont = getAutoFontColor(light);
+
+        // Apply to header
+        sheet.getRange(1, colStart, 1, colEnd - colStart + 1)
+             .setBackground(dark)
+             .setFontColor(headerFont);
+
+        // Apply to data rows
+        if (lastRow > 1) {
+          sheet.getRange(2, colStart, lastRow - 1, colEnd - colStart + 1)
+               .setBackground(light)
+               .setFontColor(bodyFont);
+        }
+      });
+    }
+  });
+}
