@@ -273,16 +273,41 @@ function toggleGroupingContactsView() {
 }
 
 
-// utilities.gs, compilation of utilities
+// ============================================================================
+// UTILITIES (Shared Tools & Export Features)
+// Core utilities that streamline recurring admin tasks across the ProTEFL 
+// registration workbook. These functions are not "small helpers" — they 
+// automate and save significant time by handling repetitive or error-prone 
+// processes.
+// 
+// Key features provided here:
+//   • Exporting participant contact info as VCF files (per test date)
+//   • Downloading participant Test IDs to Excel
+//   • Copying attendance lists into plain-text (tab-delimited) format for use 
+//     in other sheets or systems
+//   • Exporting participant score results to Excel
+//   • General helpers (e.g., column-letter conversion)
+// 
+// In short: this file centralizes all the heavy-duty utilities that 
+// make the ProTEFL admin workflow smoother, faster, and more reliable.
+// ============================================================================
 
-//helper
+// -----------------------------------------------------------------------------
+// HELPER: Letter → Column Index
+// Converts spreadsheet column letters (e.g. "A", "AX") to their numeric index.
+// Example: "A" → 1, "Z" → 26, "AA" → 27.
+// -----------------------------------------------------------------------------
 function letterToColumn_(letter) {
   var col = 0;
   for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
   return col;
 }
 
-// downloading vcf
+// -----------------------------------------------------------------------------
+// VCF EXPORT MENU ENTRY
+// Triggered from the custom menu. Prompts user for "Tanggal Tes" (yyyy-MM-dd)
+// and generates a downloadable VCF file if matching entries are found.
+// -----------------------------------------------------------------------------
 function downloadVCFFromMenu() {
   const ui = SpreadsheetApp.getUi();
   const response = ui.prompt("Enter Tanggal Tes (yyyy-MM-dd) to download VCF:");
@@ -350,6 +375,12 @@ function downloadVCFFromMenu() {
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(200), "VCF Download");
 }
 
+// -----------------------------------------------------------------------------
+// CORE VCF EXPORT FUNCTION
+// Filters "Form responses 1" by selected Tanggal Tes (column BJ), extracts the
+// VCF block (column BG), and saves the .vcf file into "ProTEFL VCFs" folder.
+// Returns { success: bool, url?: string, message?: string }.
+// -----------------------------------------------------------------------------
 function exportVCF(selection) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
   var data = sheet.getDataRange().getValues();
@@ -390,7 +421,11 @@ function exportVCF(selection) {
   return { success: true, url: file.getUrl() };
 }
 
-
+// -----------------------------------------------------------------------------
+// DIALOG RENDERER (Alternative)
+// Shows a styled modal dialog for export results. Can be used by other export
+// functions too, not only VCF.
+// -----------------------------------------------------------------------------
 function showVCFExportDialog(result) {
   let htmlContent;
   if (!result.success) {
@@ -422,7 +457,6 @@ function showVCFExportDialog(result) {
     "Export VCF"
   );
 }
-
 
 
 // ======================
