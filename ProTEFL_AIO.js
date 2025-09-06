@@ -170,6 +170,88 @@ function onOpenDefaultView() {
   toggleDefaultView(true);
 }
 
+// ======================
+// CUSTOM VIEWS (Optimized, Reliable Toggle)
+// ======================
+function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return;
+
+  var props = PropertiesService.getDocumentProperties();
+  var currentView = props.getProperty("currentView") || "";
+  var keepIndexes = keepCols.map(letterToColumn_);
+  var lastCol = sheet.getLastColumn();
+
+  var activateView = forceOn || currentView !== label;
+
+  // Show all first
+  sheet.showColumns(1, lastCol);
+
+  if (activateView) {
+    // Hide columns not in keepCols
+    var rangesToHide = [];
+    var start = null;
+    for (var col = 1; col <= lastCol; col++) {
+      if (!keepIndexes.includes(col)) {
+        if (start === null) start = col;
+      } else {
+        if (start !== null) {
+          rangesToHide.push([start, col - start]);
+          start = null;
+        }
+      }
+    }
+    if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
+    rangesToHide.forEach(r => sheet.hideColumns(r[0], r[1]));
+
+    if (sidebarFn) sidebarFn();
+    props.setProperty("currentView", label);
+  } else {
+    // Deactivating view → show all
+    props.setProperty("currentView", "");
+  }
+
+  // Install Default View trigger if applicable
+  if (label === "Default") setupDefaultViewTrigger();
+}
+
+// === Individual View Functions ===
+function toggleDefaultView(forceOn) {
+  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX"];
+  applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
+}
+
+function toggleRescheduleParticipantsView() {
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI"];
+  applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
+}
+
+function toggleVerifyStudentIDView() {
+  var keepCols = ["C","D","E","AZ","BA","BB","BC"];
+  applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
+}
+
+function toggleVerifyPaymentView() {
+  // Columns to keep visible: A, G, AS-AY, BI
+  var keepCols = ["A", "G", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI"];
+  applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
+}
+
+function toggleVerifyAttendanceView() {
+  var keepCols = [
+    "A","C","D","G","V","W","AI","AJ","AL","AN","AO",
+    "BC","BI","BJ","BL","BN","BQ","BS",
+    "BU","BV","BW","BX","CB","CG"
+  ];
+  applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
+}
+
+function toggleGroupingContactsView() {
+  const keepCols = ["A", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
+  applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
+}
+
+
 
 function downloadVCFFromMenu() {
   const ui = SpreadsheetApp.getUi();
@@ -278,86 +360,7 @@ function exportVCF(selection) {
   return { success: true, url: file.getUrl() };
 }
 
-// ======================
-// CUSTOM VIEWS (Optimized, Reliable Toggle)
-// ======================
-function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  if (!sheet) return;
 
-  var props = PropertiesService.getDocumentProperties();
-  var currentView = props.getProperty("currentView") || "";
-  var keepIndexes = keepCols.map(letterToColumn_);
-  var lastCol = sheet.getLastColumn();
-
-  var activateView = forceOn || currentView !== label;
-
-  // Show all first
-  sheet.showColumns(1, lastCol);
-
-  if (activateView) {
-    // Hide columns not in keepCols
-    var rangesToHide = [];
-    var start = null;
-    for (var col = 1; col <= lastCol; col++) {
-      if (!keepIndexes.includes(col)) {
-        if (start === null) start = col;
-      } else {
-        if (start !== null) {
-          rangesToHide.push([start, col - start]);
-          start = null;
-        }
-      }
-    }
-    if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
-    rangesToHide.forEach(r => sheet.hideColumns(r[0], r[1]));
-
-    if (sidebarFn) sidebarFn();
-    props.setProperty("currentView", label);
-  } else {
-    // Deactivating view → show all
-    props.setProperty("currentView", "");
-  }
-
-  // Install Default View trigger if applicable
-  if (label === "Default") setupDefaultViewTrigger();
-}
-
-// === Individual View Functions ===
-function toggleDefaultView(forceOn) {
-  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX"];
-  applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
-}
-
-function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI"];
-  applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
-}
-
-function toggleVerifyStudentIDView() {
-  var keepCols = ["C","D","E","AZ","BA","BB","BC"];
-  applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
-}
-
-function toggleVerifyPaymentView() {
-  // Columns to keep visible: A, G, AS-AY, BI
-  var keepCols = ["A", "G", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI"];
-  applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
-}
-
-function toggleVerifyAttendanceView() {
-  var keepCols = [
-    "A","C","D","G","V","W","AI","AJ","AL","AN","AO",
-    "BC","BI","BJ","BL","BN","BQ","BS",
-    "BU","BV","BW","BX","CB","CG"
-  ];
-  applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
-}
-
-function toggleGroupingContactsView() {
-  const keepCols = ["A", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
-  applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
-}
 
 // ======================
 // UTILITY
