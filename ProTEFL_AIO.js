@@ -44,7 +44,12 @@ function onOpen() {
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
-      .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
+      .addSeparator()
+      .addSubMenu(
+          SpreadsheetApp.getUi()
+           .createMenu("Export")
+           .addItem("Participant Test IDs", "exportParticipantTestIds"))
+	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
       .addSeparator()
       // Risky options
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
@@ -320,6 +325,184 @@ function letterToColumn_(letter) {
   for (var i = 0; i < letter.length; i++) col = col * 26 + (letter.charCodeAt(i) - 64);
   return col;
 }
+
+//EXP
+// ======================
+// DOWNLOAD VCF
+// ======================
+function downloadVCFFromMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt(
+    "Enter Test Date (YYYY-MM-DD)",
+    "Provide test date to download VCF:",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() != ui.Button.OK) return;
+  const dateFilter = response.getResponseText().trim();
+
+  const result = exportVCF(dateFilter);
+  showVCFExportDialog(result);
+}
+
+function exportVCF(selection) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Form responses 1");
+  const data = sheet.getDataRange().getValues();
+  const header = data.shift();
+
+  const bjIndex = header.indexOf("Tanggal tes");
+  const bgIndex = header.indexOf("Grouping VCF");
+  if (bjIndex === -1 || bgIndex === -1) return { success: false, message: "Columns not found." };
+
+  const filtered = data.filter(row => row[bjIndex] === selection);
+  if (filtered.length === 0) {
+    return { 
+      success: false, 
+      message: `No entries found for the test date "${selection}". Check column BJ ('Tanggal tes') for existing dates (format: yyyy-mm-dd).` 
+    };
+  }
+
+  const vcfData = filtered.map(row => row[bgIndex].replace(/"/g, "")).join("\n");
+  const blob = Utilities.newBlob(vcfData, "text/vcard", selection + ".vcf");
+  const file = DriveApp.createFile(blob);
+
+  return { success: true, url: file.getUrl() };
+}
+
+function showVCFExportDialog(result) {
+  let htmlContent;
+  if (!result.success) {
+    htmlContent = `
+      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#f8f9fa; color:#222;">
+        <h2 style="margin-top:0; color:#d32f2f;">❌ Export Failed</h2>
+        <p style="font-size:14px; line-height:1.5;">${result.message}</p>
+      </div>
+    `;
+  } else {
+    htmlContent = `
+      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#edf2fa; color:#222;">
+        <h2 style="margin-top:0; color:#1e88e5;">✅ VCF Created!</h2>
+        <p style="font-size:14px; line-height:1.5;">Your VCF file has been created in Google Drive.</p>
+        <p style="margin-top:12px;">
+          <a href="${result.url}" target="_blank" 
+             style="display:inline-block;padding:8px 12px;background:#1e88e5;color:white;border-radius:6px;text-decoration:none;">
+            Open / Download
+          </a>
+        </p>
+      </div>
+    `;
+  }
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(htmlContent)
+      .setWidth(420)
+      .setHeight(200),
+    "Export VCF"
+  );
+}
+
+// ======================
+// EXPORT PARTICIPANT TEST IDS TO EXCEL
+// ======================
+function exportParticipantTestIds() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt(
+    "Enter Test Date (YYYYMMDD)",
+    "Provide test date to export Participant Test IDs:",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() != ui.Button.OK) return;
+  const dateFilter = response.getResponseText().trim();
+
+  const result = exportTestIdsToExcel(dateFilter);
+  showExcelExportDialog(result);
+}
+
+function exportTestIdsToExcel(dateFilter) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Form responses 1");
+  if (!sheet) return { success: false, message: "Target sheet not found." };
+
+  const data = sheet.getDataRange().getValues();
+  const header = data.shift();
+
+  const dateColIndex = header.indexOf("Kode Masuk Tes ProTEFL"); // Test Date column
+  const targetCols = ["AI","AJ","AK","AL"].map(letterToColumn_); // Export AI-AL
+
+  if (dateColIndex === -1) return { success: false, message: "Test Date column (AL) not found." };
+
+  // Filter rows matching the date
+  const filtered = data.filter(row => String(row[dateColIndex]) === dateFilter);
+  if (filtered.length === 0) {
+    return { 
+      success: false, 
+      message: `No entries found for the test date "${dateFilter}". Check column AL for existing test dates.` 
+    };
+  }
+
+  // Prepare export data
+  const exportData = [targetCols.map(i => header[i-1])]; // header row
+  filtered.forEach(row => exportData.push(targetCols.map(i => row[i-1])));
+
+  const blob = Utilities.newBlob(arrayToCsv(exportData), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `Participant_TestIDs_${dateFilter}.xlsx`);
+
+  // Save in folder "Data Peserta" (create if not exists)
+  const folderName = "Data Peserta";
+  let folder = DriveApp.getFoldersByName(folderName);
+  folder = folder.hasNext() ? folder.next() : DriveApp.createFolder(folderName);
+
+  const file = folder.createFile(blob);
+
+  return { success: true, url: file.getUrl() };
+}
+
+// Convert array to CSV string (for Excel blob)
+function arrayToCsv(data) {
+  return data.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");
+}
+
+// Show Excel export dialog (styled like VCF)
+function showExcelExportDialog(result) {
+  let htmlContent;
+  
+  if (!result.success) {
+    htmlContent = `
+      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#f8f9fa; color:#222;">
+        <h2 style="margin-top:0; color:#d32f2f;">❌ Export Failed</h2>
+        <p style="font-size:14px; line-height:1.5;">${result.message}</p>
+        <p style="font-size:12px; color:#555;">Tip: Check your filter value and make sure it exists in column AL (format: YYYYMMDD)</p>
+      </div>
+    `;
+  } else {
+    // Convert URL to Drive preview link
+    const fileIdMatch = result.url.match(/[-\w]{25,}/);
+    const previewUrl = fileIdMatch ? `https://drive.google.com/file/d/${fileIdMatch[0]}/view` : result.url;
+
+    htmlContent = `
+      <div style="font-family: 'Google Sans', Arial, sans-serif; padding:20px; background:#edf2fa; color:#222;">
+        <h2 style="margin-top:0; color:#1e88e5;">✅ Excel Created!</h2>
+        <p style="font-size:14px; line-height:1.5;">Your Participant Test IDs have been exported to Excel.</p>
+        <p style="margin-top:12px;">
+          <a href="${previewUrl}" target="_blank" 
+             style="display:inline-block;padding:8px 12px;background:#1e88e5;color:white;border-radius:6px;text-decoration:none;">
+            Open / Download
+          </a>
+        </p>
+        <p style="font-size:12px; color:#555; margin-top:8px;">The file is saved in the "Data Peserta" folder.</p>
+      </div>
+    `;
+  }
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(htmlContent)
+      .setWidth(420)
+      .setHeight(200),
+    "Export Participant Test IDs"
+  );
+}
+//EXP
+
 
 // ======================
 // SIDEBARS (Optimized)
