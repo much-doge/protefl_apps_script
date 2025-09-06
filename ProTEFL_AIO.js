@@ -38,88 +38,114 @@ function main() {
   installRescheduleTrigger();      // Ensure reschedule auto-counter trigger
 }
 
-// ======================
+// ============================================================================
 // MENU SETUP
-// ======================
+// Builds the "ProTEFL Utility" custom menu with safe options, exports, risky
+// admin actions, and quick-access custom views.
+// Runs automatically on spreadsheet open.
+// ============================================================================
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ProTEFL Utility")
-      // Safe options
+      // --- Safe options ---
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
       .addSeparator()
       .addSubMenu(
-          SpreadsheetApp.getUi()
-           .createMenu("Export")
-           .addItem("Participant Test IDs", "exportParticipantTestIds")
-      	   .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
-           .addItem("Copy Attendance List", "copyAttendanceList")
-           .addItem("Export Participant Scores", "exportSiakadScoreResults")
-       )
+        SpreadsheetApp.getUi()
+          .createMenu("Export")
+          .addItem("Participant Test IDs", "exportParticipantTestIds")
+          .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
+          .addItem("Copy Attendance List", "copyAttendanceList")
+          .addItem("Export Participant Scores", "exportSiakadScoreResults")
+      )
       .addSeparator()
-      // Risky options
+      // --- Risky options ---
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
       .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
       .addSeparator()
-      // Custom views
+      // --- Custom views ---
       .addSubMenu(
         SpreadsheetApp.getUi()
           .createMenu("Custom View")
           .addItem("Default View", "toggleDefaultView")
           .addItem("Reschedule Participants", "toggleRescheduleParticipantsView")
           .addItem("Verify Student ID", "toggleVerifyStudentIDView")
-          .addItem("Verify Payment", "toggleVerifyPaymentView") 
+          .addItem("Verify Payment", "toggleVerifyPaymentView")
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
           .addItem("Grouping & Contacts", "toggleGroupingContactsView")
       )
     .addToUi();
 
-  toggleDefaultView(true); // Open Default View on workbook open
+  toggleDefaultView(true); // Always open default view on launch
 }
 
-// ======================
+// ============================================================================
 // MENU ACTION WRAPPERS
-// ======================
+// Safe prompts before executing styling, formula injection, or initialization.
+// Prevents accidental destructive changes.
+// ============================================================================
+
+/** Ask confirmation before reapplying styles */
 function applyAllStylingWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  if (ui.alert("Apply Styles",
-    "Do you want to re-apply all custom styles to your registration sheets? This will reset headers, banding, and formatting. Proceed?",
-    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
-      applyAllStyling();
+  if (ui.alert(
+    "Apply Styles",
+    "Re-apply all custom styles (headers, banding, formatting)?",
+    ui.ButtonSet.OK_CANCEL
+  ) == ui.Button.OK) {
+    applyAllStyling();
   }
 }
 
+/** Ask confirmation before applying all formulas (danger zone) */
 function applyAllFormulasWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  if (ui.alert("Apply All Formulas (Danger Zone)",
-    "Have you copied DATABASEMAHASISWA into this workbook? Applying all formulas may error if sheets are missing. Proceed?",
-    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
-      applyAllFormulas();
+  if (ui.alert(
+    "Apply All Formulas (Danger Zone)",
+    "Ensure DATABASEMAHASISWA exists. Missing sheets will cause errors. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  ) == ui.Button.OK) {
+    applyAllFormulas();
   }
 }
 
+/** Ask confirmation before full initialization (irreversible) */
 function runMainWithConfirm() {
   var ui = SpreadsheetApp.getUi();
-  if (ui.alert("Initialize Sheet (Danger Zone)",
-    "This will initialize/reinitialize your registration workbook. NOT reversible. Proceed?",
-    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
-      main();
+  if (ui.alert(
+    "Initialize Sheet (Danger Zone)",
+    "This will initialize/reinitialize your workbook. NOT reversible. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  ) == ui.Button.OK) {
+    main();
   }
 }
 
+/** Ask confirmation before installing auto counter trigger */
 function setupAutoCounterTriggerWithAlert() {
   var ui = SpreadsheetApp.getUi();
-  if (ui.alert("Set Up Trigger",
-    "This will create/replace the installable onEdit trigger for auto counter logging. Proceed?",
-    ui.ButtonSet.OK_CANCEL) == ui.Button.OK) {
-      setupAutoCounterTrigger();
+  if (ui.alert(
+    "Set Up Trigger",
+    "Create/replace the onEdit trigger for auto counter logging. Proceed?",
+    ui.ButtonSet.OK_CANCEL
+  ) == ui.Button.OK) {
+    setupAutoCounterTrigger();
   }
 }
 
+// ============================================================================
+// TRIGGER MANAGEMENT
+// Installs or refreshes installable triggers for auto counter logging
+// and opening the default view.
+// ============================================================================
+
+/** Replace existing reschedule trigger with a fresh one */
 function setupAutoCounterTrigger() {
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
-    if (trigger.getHandlerFunction() === "onEditLogReschedule") ScriptApp.deleteTrigger(trigger);
+    if (trigger.getHandlerFunction() === "onEditLogReschedule")
+      ScriptApp.deleteTrigger(trigger);
   });
   ScriptApp.newTrigger("onEditLogReschedule")
     .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
@@ -127,6 +153,7 @@ function setupAutoCounterTrigger() {
     .create();
 }
 
+/** Ensure onOpen trigger is installed to always load default view */
 function setupDefaultViewTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   var exists = triggers.some(t => t.getHandlerFunction() === "onOpenDefaultView");
@@ -138,6 +165,7 @@ function setupDefaultViewTrigger() {
   }
 }
 
+/** Handler for default view trigger */
 function onOpenDefaultView() {
   toggleDefaultView(true);
 }
