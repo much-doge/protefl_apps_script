@@ -170,9 +170,22 @@ function onOpenDefaultView() {
   toggleDefaultView(true);
 }
 
-// ======================
+// ============================================================================
 // CUSTOM VIEWS (Optimized, Reliable Toggle)
-// ======================
+// Central engine for hiding/showing specific column sets per view. 
+// - Persists current view in DocumentProperties
+// - Can toggle on/off, or force re-activation
+// - Optionally launches a matching sidebar
+// ============================================================================
+
+/**
+ * Core function to apply a custom view.
+ * @param {string} sheetName   Target sheet name
+ * @param {string[]} keepCols  Array of column letters to remain visible
+ * @param {function} sidebarFn Optional sidebar renderer for this view
+ * @param {string} label       Unique view identifier
+ * @param {boolean} forceOn    Force view on (bypass toggle logic)
+ */
 function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   if (!sheet) return;
@@ -184,21 +197,19 @@ function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
 
   var activateView = forceOn || currentView !== label;
 
-  // Show all first
+  // Always reset → show everything before hiding
   sheet.showColumns(1, lastCol);
 
   if (activateView) {
-    // Hide columns not in keepCols
+    // Hide all except keepCols
     var rangesToHide = [];
     var start = null;
     for (var col = 1; col <= lastCol; col++) {
       if (!keepIndexes.includes(col)) {
         if (start === null) start = col;
-      } else {
-        if (start !== null) {
-          rangesToHide.push([start, col - start]);
-          start = null;
-        }
+      } else if (start !== null) {
+        rangesToHide.push([start, col - start]);
+        start = null;
       }
     }
     if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
@@ -207,36 +218,44 @@ function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
     if (sidebarFn) sidebarFn();
     props.setProperty("currentView", label);
   } else {
-    // Deactivating view → show all
+    // Toggle OFF → reset to show all
     props.setProperty("currentView", "");
   }
 
-  // Install Default View trigger if applicable
+  // Ensure default view is reinstalled if this is the Default
   if (label === "Default") setupDefaultViewTrigger();
 }
 
-// === Individual View Functions ===
+// ============================================================================
+// INDIVIDUAL VIEW TOGGLES
+// Each defines which columns stay visible and which sidebar to launch.
+// ============================================================================
+
+/** Show lean "Default" view (basic registration essentials) */
 function toggleDefaultView(forceOn) {
   var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX"];
   applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
 }
 
+/** Focus on rescheduling participants (schedule + comms columns) */
 function toggleRescheduleParticipantsView() {
   var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
+/** Verify student IDs (identity & student database link) */
 function toggleVerifyStudentIDView() {
   var keepCols = ["C","D","E","AZ","BA","BB","BC"];
   applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
 }
 
+/** Verify payments (proof columns + payment status) */
 function toggleVerifyPaymentView() {
-  // Columns to keep visible: A, G, AS-AY, BI
   var keepCols = ["A", "G", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI"];
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
+/** Verify attendance (test date, codes, and presence fields) */
 function toggleVerifyAttendanceView() {
   var keepCols = [
     "A","C","D","G","V","W","AI","AJ","AL","AN","AO",
@@ -246,11 +265,11 @@ function toggleVerifyAttendanceView() {
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
 
+/** Group participants & manage contacts (IDs + contact columns) */
 function toggleGroupingContactsView() {
   const keepCols = ["A", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
 }
-
 
 
 function downloadVCFFromMenu() {
