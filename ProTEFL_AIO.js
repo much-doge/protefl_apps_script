@@ -1976,6 +1976,234 @@ const FORM_RESPONSES_1_HEADER = [
    */
 
 
+// EXPERIMENTAL 
+
+// run on setupSheets
+function insertULBHeader() {
+  const SHEET_NAME = "04. BUAT PRESENSI DAN GRUP WA H-1";
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return;
+
+  // --- Safety cleanup: only the header zone (rows 1–10, cols T:Z) ---
+  const startRow = 1, numRows = 10;
+  const startCol = 20; // T
+  const endCol = 26;   // Z
+  const numCols = endCol - startCol + 1;
+
+  const headerZone = sheet.getRange(startRow, startCol, numRows, numCols);
+  headerZone.breakApart();
+  headerZone.clearContent();
+  headerZone.clearFormat();
+
+  // Remove old floating images anchored in the header zone
+  sheet.getImages().forEach(img => {
+    const a = img.getAnchorCell();
+    if (a.getRow() <= (startRow + numRows - 1) && a.getColumn() >= startCol && a.getColumn() <= endCol) {
+      img.remove();
+    }
+  });
+
+  // --- Column widths ---
+  sheet.setColumnWidth(20, 70);   // T
+  sheet.setColumnWidth(21, 230);  // U
+  sheet.setColumnWidth(22, 145);  // V
+  sheet.setColumnWidth(23, 70);   // W
+  sheet.setColumnWidth(24, 70);   // X
+
+  // --- Insert logo (floating) at T1, ~3 cm (≈110 px) ---
+  const fileId = "16efI7zr8dQ9wNXJLdgXdjzxghEn7wHM3";
+  const blob = DriveApp.getFileById(fileId).getBlob();
+  sheet.insertImage(blob, startCol, startRow).setWidth(110).setHeight(110); // T1
+
+  // Helper to set merged & centered text safely
+  const setMergedCentered = (a1, text, fontFamily, fontSize, bold) => {
+    const r = sheet.getRange(a1);
+    r.merge();
+    r.setValue(text)
+      .setFontFamily(fontFamily)
+      .setFontSize(fontSize)
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle")
+      .setFontWeight(bold ? "bold" : "normal");
+  };
+
+  // --- Institutional header (Times New Roman 11, centered) in T:Y rows 1–4 ---
+  setMergedCentered("T1:Y1", "KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET DAN TEKNOLOGI", "Times New Roman", 11, false);
+  setMergedCentered("T2:Y2", "UNIVERSITAS NEGERI YOGYAKARTA", "Times New Roman", 11, false);
+  setMergedCentered("T3:Y3", "FAKULTAS BAHASA, SENI, DAN BUDAYA", "Times New Roman", 11, false);
+  setMergedCentered("T4:Y4", "UNIT LAYANAN BAHASA", "Times New Roman", 11, false);
+
+  // (Row 5 left blank intentionally)
+
+  // --- Contact info (Arial 10, centered) in T:Y rows 6–7 ---
+  setMergedCentered("T6:Y6", "Sekretariat: Gedung Language Training Centre, Kampus Karangmalang, Yogyakarta", "Arial", 10, false);
+  setMergedCentered("T7:Y7", "Email: ulb@uny.ac.id", "Arial", 10, false);
+
+  // --- Black separator line on row 9 across T:Y ---
+  sheet.getRange("T9:Y9").setBorder(
+    true, false, false, false, false, false, "black", SpreadsheetApp.BorderStyle.SOLID_MEDIUM
+  );
+
+  // --- Title (Times New Roman 12, bold) on row 10 across T:Y ---
+  setMergedCentered("T10:Y10", "DAFTAR HADIR TES ProTEFL LURING", "Times New Roman", 12, true);
+}
+  
+// EXPERIMENTAL
+// New feature
+function generateAttendanceSheet() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt("Cetak Presensi", "Masukkan nama Grup Tes (kolom G):", ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  const groupName = response.getResponseText().trim();
+  if (!groupName) return;
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("04. BUAT PRESENSI DAN GRUP WA H-1");
+  const lastRow = sheet.getLastRow();
+  const data = sheet.getRange(1, 1, lastRow, 30).getValues(); // A–AD
+
+  // --- Filter rows by groupName in col G (index 6) ---
+  const rows = data.filter((r, i) => i > 0 && r[6] == groupName); // skip header
+  if (rows.length === 0) {
+    ui.alert("Tidak ada data untuk grup: " + groupName);
+    return;
+  }
+
+  // --- Parse test date (col F index 5) ---
+  const rawDate = String(rows[0][5]); // assume same date for group
+  const dateObj = parseYYYYMMDD(rawDate);
+  const hari = hariIndonesia(dateObj.getDay());
+  const tanggal = Utilities.formatDate(dateObj, "Asia/Jakarta", "dd MMMM yyyy");
+
+  const startCol = 20; // T
+  const endCol = 25;   // Y 🔹 extended one column right
+  const numCols = endCol - startCol + 1;
+
+  // --- Only clear presensi area AFTER row 12 (so header + spacing stay) ---
+  sheet.getRange(12, startCol, sheet.getMaxRows() - 11, numCols).clear();
+
+  // --- Check header first (T1:Y8) ---
+  const headerCheck = sheet.getRange(1, startCol, 8, numCols).getValues().flat().join(" ");
+  if (!headerCheck.includes("KEMENTERIAN PENDIDIKAN")) {
+    insertULBHeader(); // only run if not found
+  }
+
+  // --- Test details (row 12+) ---
+  let r = 12;
+  sheet.getRange(r++, startCol).setValue("Lokasi      : Laboratorium Komputer ______ ULB UNY")
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("left");
+  sheet.getRange(r++, startCol).setValue("Hari        : " + hari)
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("left");
+  sheet.getRange(r++, startCol).setValue("Tanggal     : " + tanggal)
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("left");
+  sheet.getRange(r += 1, startCol).setValue("Waktu       : ____ s.d. ____ WIB")
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("left");
+  r += 2;
+
+  // --- Attendance table headers ---
+  const headers = ["Nomor Kursi", "Nama Peserta", "NIM/NIK/No. Ujian", "Tanda Tangan"];
+  sheet.getRange(r, startCol, 1, headers.length).setValues([headers])
+    .setFontFamily("Times New Roman").setFontSize(12).setFontWeight("bold")
+    .setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
+
+  // Merge W & X for header
+  sheet.getRange(r, startCol + 3, 1, 2).merge();
+  r++;
+
+  // --- Attendance rows ---
+  let nomorKursi = 1;
+  const rowsOut = rows.map(p => {
+    const kursi = nomorKursi++;
+    return [
+      kursi,
+      p[3], // col D → Nama Peserta
+      p[2], // col C → NIM/NIK/No. Ujian
+      kursi % 2 === 1 ? kursi : "",
+      kursi % 2 === 0 ? kursi : ""
+    ];
+  });
+
+  // Fill table
+  const bodyRange = sheet.getRange(r, startCol, rowsOut.length, headers.length + 1);
+  bodyRange.setValues(rowsOut)
+    .setFontFamily("Times New Roman").setFontSize(12)
+    .setVerticalAlignment("middle");
+
+  // Alignment rules
+  sheet.getRange(r, startCol, rowsOut.length, 1).setHorizontalAlignment("center"); // Nomor Kursi
+  sheet.getRange(r, startCol + 1, rowsOut.length, 1).setHorizontalAlignment("left"); // Nama Peserta
+  sheet.getRange(r, startCol + 2, rowsOut.length, 1).setHorizontalAlignment("center"); // NIM/NIK
+  sheet.getRange(r, startCol + 3, rowsOut.length, 2).setHorizontalAlignment("left"); // Tanda Tangan cols
+
+  r += rowsOut.length + 2;
+
+  // --- Closing signature area ---
+  sheet.getRange(r, startCol + 2).setValue("Yogyakarta, " + tanggal)
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
+  r += 2;
+  sheet.getRange(r, startCol + 2).setValue("Pengawas")
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
+  r += 4;
+  sheet.getRange(r, startCol + 2).setValue("_____________________")
+    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
+
+  const lastPrintRow = r; // include underline
+
+  // --- Force sync before export ---
+  SpreadsheetApp.flush();
+
+  // --- Export only T:Y and until lastPrintRow ---
+  exportAttendanceAsPdf(sheet, startCol, endCol, lastPrintRow, groupName, tanggal);
+}
+
+
+// Parse YYYYMMDD → JS Date
+function parseYYYYMMDD(s) {
+  const y = parseInt(s.substring(0, 4));
+  const m = parseInt(s.substring(4, 6)) - 1;
+  const d = parseInt(s.substring(6, 8));
+  return new Date(y, m, d);
+}
+
+// JS day → Indonesian
+function hariIndonesia(d) {
+  return ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][d];
+}
+
+// Export restricted to T:Y
+function exportAttendanceAsPdf(sheet, startCol, endCol, lastRow, groupName, tanggal) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetId = sheet.getSheetId();
+
+  const url = ss.getUrl().replace(/edit$/, '') +
+    'export?exportFormat=pdf&format=pdf' +
+    `&gid=${sheetId}` +
+    '&portrait=true' +
+    '&size=A4' +
+    '&fitw=true' +
+    '&gridlines=false' +
+    '&printtitle=false' +
+    '&sheetnames=false' +
+    '&pagenumbers=false' +
+    '&fzr=false' +
+    `&r1=0&r2=${lastRow - 1}` +               // rows 1 → lastRow
+    `&c1=${startCol - 1}&c2=${endCol - 1}`;   // cols T → Y 🔹
+
+  const token = ScriptApp.getOAuthToken();
+  const response = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+
+  // Save to Drive
+  const folderName = "Presensi Luring";
+  let folder = DriveApp.getFoldersByName(folderName).hasNext()
+    ? DriveApp.getFoldersByName(folderName).next()
+    : DriveApp.createFolder(folderName);
+
+  const blob = response.getBlob().setName(`Presensi_${groupName}_${tanggal}.pdf`);
+  folder.createFile(blob);
+}
+
+
 // ============================================================================
 // File: setupDropdowns.gs
 // 
