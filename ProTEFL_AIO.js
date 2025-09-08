@@ -1771,7 +1771,7 @@ const SHEET_INITIALIZATIONS = [
       sheetName: '01. STATISTIK',
       cells: {
         'A40': 'NAMA GRUP WA',
-        'F40': 'Jumlah Peserta',
+        'B40': 'Jumlah Peserta',
       }
     },
     {
