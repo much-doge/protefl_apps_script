@@ -138,6 +138,7 @@ function onOpen() {
           .addItem("Participant Test IDs", "exportParticipantTestIds")
           .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
           .addItem("Copy Attendance List", "copyAttendanceList")
+          .addItem("Copy Certificate Data", "copyCertificateData")
           .addItem("Export Participant Scores", "exportSiakadScoreResults")
       )
       .addSeparator()
@@ -863,6 +864,108 @@ function exportSiakadScoreResults() {
     HtmlService.createHtmlOutput(htmlContent).setWidth(460).setHeight(250),
     "Export Siakad Score Results"
   );
+}
+
+// -----------------------------------------------------------------------------
+// COPY CERTIFICATE DATA FUNCTION
+//
+// Purpose:
+//   Exports a tab-delimited certificate list for a given issue date (YYYYMMDD)
+//   into clipboard from the "05. DATASERTIFIKAT" sheet.
+//
+// Steps:
+//   1. Prompt the user for the certificate date (format: YYYYMMDD).
+//   2. Access the certificate sheet and pull all data.
+//   3. Filter rows by Column B ("Date") matching the user input.
+//   4. If no rows found → show an error modal and exit.
+//   5. Extract only C–P columns.
+//   6. Convert the filtered rows into a tab-delimited string (with header).
+//   7. Show modal with a textarea containing the result and a "Copy to Clipboard" button.
+// -----------------------------------------------------------------------------
+function copyCertificateData() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt(
+    "Enter Certificate Date (YYYYMMDD)",
+    "Provide issue date:",
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  const dateFilter = response.getResponseText().trim();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("05. DATASERTIFIKAT");
+  if (!sheet) return ui.alert("Target sheet not found.");
+
+  let data = sheet.getDataRange().getValues();
+  const header = data.shift(); // remove header row
+  const dateColIndex = 1; // Column B (zero-based)
+
+  // Filter by certificate date
+  data = data.filter(row => String(row[dateColIndex]) === dateFilter);
+
+  if (data.length === 0) {
+    // Error modal
+    const html = `
+      <div style="
+          font-family: 'Google Sans', Arial, sans-serif; 
+          padding:20px; 
+          background:#fefefe; 
+          color:#222; 
+          border-radius:10px; 
+          box-shadow:0 2px 5px rgba(0,0,0,0.15);
+      ">
+        <h2 style="margin-top:0; color:#c62828;">⚠️ No Entries Found</h2>
+        <p>No certificate records found for "<b>${dateFilter}</b>".</p>
+        <p>Check column <b>B</b> ('Issue Date') for existing values (format: YYYYMMDD).</p>
+        <button onclick="google.script.host.close()" style="
+            background:#1e88e5;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:8px 12px;
+            cursor:pointer;
+        ">Close</button>
+      </div>
+    `;
+    ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(220), "Copy Certificate Error");
+    return;
+  }
+
+  // Slice only columns C–P (indexes 2–15)
+  data = data.map(row => row.slice(2, 16));
+  const certHeader = header.slice(2, 16);
+
+  // Tab-delimited string (include headers)
+  const tabText = [certHeader.join("\t")]
+    .concat(data.map(row => row.join("\t")))
+    .join("\n");
+
+  // Success modal
+  const html = `
+    <div style="
+        font-family: 'Google Sans', Arial, sans-serif; 
+        padding:20px; 
+        background:#edf2fa; 
+        color:#222; 
+        border-radius:10px; 
+        box-shadow:0 2px 5px rgba(0,0,0,0.15);
+    ">
+      <h2 style="margin-top:0; color:#1e88e5;">✅ Certificate Data Ready</h2>
+      <p>${data.length} rows for "<b>${dateFilter}</b>"</p>
+      <textarea id="certificateData" style="width:100%;height:250px;margin-top:8px;">${tabText}</textarea>
+      <p style="margin-top:12px;">
+        <button onclick="document.getElementById('certificateData').select(); document.execCommand('copy');" style="
+            background:#1e88e5;
+            color:white;
+            border:none;
+            border-radius:6px;
+            padding:8px 12px;
+            cursor:pointer;
+        ">Copy to Clipboard</button>
+      </p>
+      <p style="margin-top:8px; font-size:12px; color:#555;">Tip: Paste directly into your certificate sheet.</p>
+    </div>
+  `;
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(460).setHeight(350), "Copy Certificate Data");
 }
 
 
