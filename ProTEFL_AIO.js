@@ -49,6 +49,7 @@ function main() {
   setupDefaultViewTrigger();
   protectOriginalScheduleColumn();
   installRescheduleTrigger();
+  ensureStylingTrigger();
 
   SpreadsheetApp.getUi().alert(
     "Main Completed ✅",
@@ -112,6 +113,26 @@ function setupAllDropdownsWithDummy() {
 
   // Now run the original dropdown setup
   setupAllDropdowns();
+}
+
+// ----------------------------------------------------------------------------
+// Ensures a time-driven trigger exists for applyAllStyling().
+// Creates one if none exists.
+// ----------------------------------------------------------------------------
+function ensureStylingTrigger() {
+  const existing = ScriptApp.getProjectTriggers().filter(
+    t => t.getHandlerFunction() === "applyAllStyling"
+  );
+
+  if (existing.length === 0) {
+    ScriptApp.newTrigger("applyAllStyling")
+             .timeBased()
+             .everyMinutes(30)
+             .create();
+    Logger.log("Trigger created: applyAllStyling() will run every 30 minutes.");
+  } else {
+    Logger.log("Trigger already exists. No new trigger created.");
+  }
 }
 
 
