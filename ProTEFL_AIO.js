@@ -896,14 +896,13 @@ function copyCertificateData() {
   if (!sheet) return ui.alert("Target sheet not found.");
 
   let data = sheet.getDataRange().getValues();
-  const header = data.shift(); // remove header row
+  data.shift(); // remove header row entirely
   const dateColIndex = 1; // Column B (zero-based)
 
   // Filter by certificate date
   data = data.filter(row => String(row[dateColIndex]) === dateFilter);
 
   if (data.length === 0) {
-    // Error modal
     const html = `
       <div style="
           font-family: 'Google Sans', Arial, sans-serif; 
@@ -932,12 +931,9 @@ function copyCertificateData() {
 
   // Slice only columns C–P (indexes 2–15)
   data = data.map(row => row.slice(2, 16));
-  const certHeader = header.slice(2, 16);
 
-  // Tab-delimited string (include headers)
-  const tabText = [certHeader.join("\t")]
-    .concat(data.map(row => row.join("\t")))
-    .join("\n");
+  // Tab-delimited string (no headers)
+  const tabText = data.map(row => row.join("\t")).join("\n");
 
   // Success modal
   const html = `
