@@ -1943,42 +1943,26 @@ const FORM_RESPONSES_1_HEADER = [
     ]
   ]
   
-  /**
-   * Main function to initialize/refresh the sheets.
-   */
-  function initializeSheets() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-    // --- 1. Create sheets as necessary ---
-    SHEET_INITIALIZATIONS.forEach(sheetObj => {
-      let sheet = ss.getSheetByName(sheetObj.sheetName);
-      if (!sheet) {
-        sheet = ss.insertSheet(sheetObj.sheetName);
-      }
-      // Write template values
-      Object.entries(sheetObj.cells).forEach(([cell, value]) => {
-        sheet.getRange(cell).setValue(value);
-      });
-    });
-  
-    // --- 2. Populate headers for 'Form responses 1' as specified ---
-    const formSheet = ss.getSheetByName('Form responses 1');
-    if (formSheet) {
-      FORM_RESPONSES_1_HEADER[0].forEach(([cell, value]) => {
-        formSheet.getRange(cell).setValue(value);
-      });
-    }
-  }
-  
-  /**
-   * Optionally, you could run this on a time-driven trigger OR onOpen.
-   * For now, just run initializeSheets from your "main.gs"
-   */
-
-
-// EXPERIMENTAL 
-
-// run on setupSheets
+  // -----------------------------------------------------------------------------
+// INSERT ULB HEADER FUNCTION
+//
+// Purpose:
+//   Inserts or refreshes the institutional header in the sheet 
+//   "04. BUAT PRESENSI DAN GRUP WA H-1" (columns T:Y, rows 1–10).
+//
+// Steps:
+//   1. Clear header zone (rows 1–10, cols T–Z) including formats & images.
+//   2. Set new column widths (T=70, U=265, V=175, W=70, X=70, Y=38).
+//   3. Insert the institutional logo at T1, sized ~2.6 cm (~98 px).
+//   4. Add institutional text lines (Times New Roman 11, centered).
+//   5. Add contact info (Arial 10, centered).
+//   6. Draw a black separator line across T:Y (row 9).
+//   7. Insert the attendance sheet title (Times New Roman 12, bold).
+//
+// Notes:
+//   - Only runs when needed (generateAttendanceSheet checks if missing).
+//   - Designed to align with ProTEFL attendance sheet layout.
+// -----------------------------------------------------------------------------
 function insertULBHeader() {
   const SHEET_NAME = "04. BUAT PRESENSI DAN GRUP WA H-1";
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -2005,15 +1989,16 @@ function insertULBHeader() {
 
   // --- Column widths ---
   sheet.setColumnWidth(20, 70);   // T
-  sheet.setColumnWidth(21, 230);  // U
-  sheet.setColumnWidth(22, 145);  // V
+  sheet.setColumnWidth(21, 265);  // U
+  sheet.setColumnWidth(22, 175);  // V
   sheet.setColumnWidth(23, 70);   // W
   sheet.setColumnWidth(24, 70);   // X
+  sheet.setColumnWidth(25, 38);   // Y
 
-  // --- Insert logo (floating) at T1, ~3 cm (≈110 px) ---
+  // --- Insert logo (floating) at T1, ~2.6 cm (≈98 px) ---
   const fileId = "16efI7zr8dQ9wNXJLdgXdjzxghEn7wHM3";
   const blob = DriveApp.getFileById(fileId).getBlob();
-  sheet.insertImage(blob, startCol, startRow).setWidth(110).setHeight(110); // T1
+  sheet.insertImage(blob, startCol, startRow).setWidth(98).setHeight(98); // T1
 
   // Helper to set merged & centered text safely
   const setMergedCentered = (a1, text, fontFamily, fontSize, bold) => {
@@ -2047,6 +2032,44 @@ function insertULBHeader() {
   // --- Title (Times New Roman 12, bold) on row 10 across T:Y ---
   setMergedCentered("T10:Y10", "DAFTAR HADIR TES ProTEFL LURING", "Times New Roman", 12, true);
 }
+
+  /**
+   * Main function to initialize/refresh the sheets.
+   */
+  function initializeSheets() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+    // --- 1. Create sheets as necessary ---
+    SHEET_INITIALIZATIONS.forEach(sheetObj => {
+      let sheet = ss.getSheetByName(sheetObj.sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetObj.sheetName);
+      }
+      // Write template values
+      Object.entries(sheetObj.cells).forEach(([cell, value]) => {
+        sheet.getRange(cell).setValue(value);
+      });
+    });
+  
+    // --- 2. Populate headers for 'Form responses 1' as specified ---
+    const formSheet = ss.getSheetByName('Form responses 1');
+    if (formSheet) {
+      FORM_RESPONSES_1_HEADER[0].forEach(([cell, value]) => {
+        formSheet.getRange(cell).setValue(value);
+      });
+    }
+  
+    // --- 3. Setup header for attendance sheet ---
+    insertULBHeader();
+  }
+  
+  /**
+   * Optionally, you could run this on a time-driven trigger OR onOpen.
+   * For now, just run initializeSheets from your "main.gs"
+   */
+
+
+
   
 // EXPERIMENTAL
 // New feature
