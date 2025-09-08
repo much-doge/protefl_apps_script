@@ -29,31 +29,91 @@
 // Run this only when initializing or re-initializing (destructive).
 // ============================================================================
 function main() {
-
   // --------------------------------------------------------------------------
   // Prerequisite: DATABASEMAHASISWA must exist
   // --------------------------------------------------------------------------
-  pullDatabaseMahasiswa();         // Pulling DATABASEMAHASISWA from source  
-  initializeSheets();              // Create sheets and populate headers/templates
-  setupAllDropdowns();             // Add dropdown validations
-  protectOriginalScheduleColumn(); // Lock the "Original Schedule" column (R)
-  applyAllStyling();               // Apply header fonts, widths, colors
-  // Only run appluFormulas if sheet exists
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName("DATABASEMAHASISWA")) {
-    applyAllFormulas();            // Insert all ARRAY/FILLDOWN formulas
-  } else {
+  const dbSuccess = pullDatabaseMahasiswa(); // returns true/false
+  if (!dbSuccess) {
     SpreadsheetApp.getUi().alert(
-      "Formulas Skipped ❌",
-      "'DATABASEMAHASISWA' is missing. Formulas not applied.",
+      "Setup Aborted ❌",
+      "'DATABASEMAHASISWA' pull failed. Main setup stopped.",
       SpreadsheetApp.getUi().ButtonSet.OK
     );
+    return; // stop main
   }
-  setupDefaultViewTrigger();       // Ensure Default View trigger is installed
-  installRescheduleTrigger();      // Ensure reschedule auto-counter trigger
 
-  SpreadsheetApp.getUi().alert("Main Completed ✅", "All setup steps finished successfully.", SpreadsheetApp.getUi().ButtonSet.OK);
+  initializeSheets();
+  setupAllDropdownsWithDummy();
+  applyAllStyling();
+  applyAllFormulas();
+  setupDefaultViewTrigger();
+  protectOriginalScheduleColumn();
+  installRescheduleTrigger();
+
+  SpreadsheetApp.getUi().alert(
+    "Main Completed ✅",
+    "All setup steps finished successfully.",
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
+
+// ----------------------------------------------------------------------------
+// Prerequisite for main. Pull DATABASEMAHASISWA from source with success/failure dialogs
+// ----------------------------------------------------------------------------
+function pullDatabaseMahasiswa() {
+  const ui = SpreadsheetApp.getUi();
+  const destSS = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const sourceSS = SpreadsheetApp.openByUrl(ENV.DATABASE_URL);
+    const sourceSheet = sourceSS.getSheetByName("DATABASEMAHASISWA");
+    if (!sourceSheet) {
+      ui.alert("Pull Failed ❌", "Source sheet 'DATABASEMAHASISWA' not found.", ui.ButtonSet.OK);
+      return false;
+    }
+
+    const existingSheet = destSS.getSheetByName("DATABASEMAHASISWA");
+    if (existingSheet) destSS.deleteSheet(existingSheet);
+
+    const copiedSheet = sourceSheet.copyTo(destSS);
+    copiedSheet.setName("DATABASEMAHASISWA");
+    destSS.setActiveSheet(copiedSheet);
+    destSS.moveActiveSheet(1);
+
+    ui.alert("Pull Successful ✅", "'DATABASEMAHASISWA' copied successfully.", ui.ButtonSet.OK);
+    return true;
+
+  } catch (e) {
+    ui.alert("Pull Failed ❌", "Error pulling sheet: " + e.message, ui.ButtonSet.OK);
+    return false;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Wrapper: safely run setupAllDropdowns, insert dummy row if empty
+// ----------------------------------------------------------------------------
+function setupAllDropdownsWithDummy() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Form responses 1");
+  if (!sheet) return;
+
+  // Check if there is at least one real row beyond header
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) { // empty or only header
+    // Insert dummy row to avoid dropdown errors
+    sheet.getRange("A2").setValue(new Date()); // date
+    sheet.getRange("B2").setValue("dummy@student.uny.ac.id"); // email
+    sheet.getRange("C2").setValue("ProTEFL SIAKAD UNY (tanpa sertifikat)"); // test option
+    sheet.getRange("D2").setValue("23021340999"); // random 11-digit student ID
+    sheet.getRange("E2").setValue("Dummy Participant"); // name
+    sheet.getRange("F2").setValue("'081234567890"); // phone, leading apostrophe
+    sheet.getRange("R2").setValue("Jumat, 12 September 2045 - OFFLINE PAGI 09.20-11.30 WIB"); // schedule
+  }
+
+  // Now run the original dropdown setup
+  setupAllDropdowns();
+}
+
 
 // ============================================================================
 // File: menu.gs
@@ -102,44 +162,6 @@ function onOpen() {
   toggleDefaultView(true); // Always open default view on launch
 }
 
-// ----------------------------------------------------------------------------
-// Prerequisite for main. Pull DATABASEMAHASISWA from source with success/failure dialogs
-// ----------------------------------------------------------------------------
-function pullDatabaseMahasiswa() {
-  const ui = SpreadsheetApp.getUi();
-  const destSS = SpreadsheetApp.getActiveSpreadsheet();
-  const sourceUrl = "LIKE I WILL GIVE IT TO YOU LOL";
-  
-  try {
-    const sourceSS = SpreadsheetApp.openByUrl(sourceUrl);
-    const sourceSheet = sourceSS.getSheetByName("DATABASEMAHASISWA");
-    if (!sourceSheet) {
-      ui.alert("Pull Failed ❌", "Source sheet 'DATABASEMAHASISWA' not found in the source spreadsheet.", ui.ButtonSet.OK);
-      return;
-    }
-
-    // Delete existing sheet if present
-    const existingSheet = destSS.getSheetByName("DATABASEMAHASISWA");
-    if (existingSheet) {
-      destSS.deleteSheet(existingSheet);
-    }
-
-    // Copy sheet and rename
-    const copiedSheet = sourceSheet.copyTo(destSS);
-    copiedSheet.setName("DATABASEMAHASISWA");
-
-    // Optional: move to first position
-    destSS.setActiveSheet(copiedSheet);
-    destSS.moveActiveSheet(1);
-
-    // Success dialog
-    ui.alert("Pull Successful ✅", "'DATABASEMAHASISWA' has been copied successfully.", ui.ButtonSet.OK);
-
-  } catch (e) {
-    // Failure dialog
-    ui.alert("Pull Failed ❌", "Error pulling sheet: " + e.message, ui.ButtonSet.OK);
-  }
-}
 
 // ----------------------------------------------------------------------------
 // MENU ACTION WRAPPERS
@@ -2399,6 +2421,25 @@ function getLastDataRow_(sheet, keyCol = 3) {
       )`],
     ];
   
+
+
+  function clearExistingFormulas(sheet, cellA1, type) {
+    var anchorRange = sheet.getRange(cellA1);
+    var startRow = anchorRange.getRow();
+    var col = anchorRange.getColumn();
+    var lastRow = sheet.getMaxRows();
+  
+    var range = sheet.getRange(startRow, col, lastRow - startRow + 1);
+    var formulas = range.getFormulas();
+  
+    for (var r = 0; r < formulas.length; r++) {
+      for (var c = 0; c < formulas[r].length; c++) {
+        if (formulas[r][c]) range.getCell(r + 1, c + 1).clearContent();
+      }
+    }
+  }
+    
+  
 // ---------------------------------------------------------------------------
 // applyAllFormulas()
 // Loops through the central FORMULAS_TO_APPLY configuration and ensures
@@ -2409,26 +2450,23 @@ function getLastDataRow_(sheet, keyCol = 3) {
 function applyAllFormulas() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Iterate through all configured formulas
   FORMULAS_TO_APPLY.forEach(row => {
     var [sheetName, cellA1, type, formula, keyCol] = row;
-
-    // Skip if target sheet does not exist
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) return;
 
-    // Dispatch based on formula type
-    if (type === "ARRAY") {
-      // Insert ARRAYFORMULA once into the anchor cell
-      setFormulaOnce(sheet, cellA1, formula);
+    // Clear old formulas first
+    clearExistingFormulas(sheet, cellA1, type);
 
+    // Apply formula
+    if (type === "ARRAY") {
+      setFormulaOnce(sheet, cellA1, formula);
     } else if (type === "FILLDOWN") {
-      // Fill the formula down to all non-empty rows
-      // Default key column = 3 (column C) if none provided
       fillDownFormula(sheet, cellA1, formula, keyCol || 3);
     }
   });
 }
+
 
 
 // ============================================================================
