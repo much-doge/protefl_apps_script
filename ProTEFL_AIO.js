@@ -128,6 +128,7 @@ function onOpen() {
     .createMenu("ProTEFL Utility")
       // --- Safe options ---
       .addItem("Fix Column CD", "fixColumnCD")
+      .addItem("Fix Institution Letterhead Template", "insertULBHeader")
       .addItem("Apply Styles", "applyAllStylingWithConfirm")
       .addItem("Protect Original Schedule Column", "protectOriginalScheduleColumn")
       .addItem("Set Up AutoCounter Trigger", "setupAutoCounterTriggerWithAlert")
@@ -138,6 +139,7 @@ function onOpen() {
           .addItem("Participant Test IDs", "exportParticipantTestIds")
           .addItem("Download VCF by Tanggal Tes", "downloadVCFFromMenu")
           .addItem("Copy Attendance List", "copyAttendanceList")
+          .addItem("Print Attendance Sheet", "generateAttendanceSheet")
           .addItem("Copy Certificate Data", "copyCertificateData")
           .addItem("Export Participant Scores", "exportSiakadScoreResults")
       )
@@ -2013,7 +2015,7 @@ function insertULBHeader() {
   };
 
   // --- Institutional header (Times New Roman 11, centered) in T:Y rows 1–4 ---
-  setMergedCentered("T1:Y1", "KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET DAN TEKNOLOGI", "Times New Roman", 11, false);
+  setMergedCentered("T1:Y1", "KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI", "Times New Roman", 11, false);
   setMergedCentered("T2:Y2", "UNIVERSITAS NEGERI YOGYAKARTA", "Times New Roman", 11, false);
   setMergedCentered("T3:Y3", "FAKULTAS BAHASA, SENI, DAN BUDAYA", "Times New Roman", 11, false);
   setMergedCentered("T4:Y4", "UNIT LAYANAN BAHASA", "Times New Roman", 11, false);
@@ -2031,6 +2033,9 @@ function insertULBHeader() {
 
   // --- Title (Times New Roman 12, bold) on row 10 across T:Y ---
   setMergedCentered("T10:Y10", "DAFTAR HADIR TES ProTEFL LURING", "Times New Roman", 12, true);
+
+  // --- Resize specific rows ---
+  [5, 8, 9, 11].forEach(r => sheet.setRowHeight(r, 5));
 }
 
   /**
@@ -2126,7 +2131,8 @@ function generateAttendanceSheet() {
   const headers = ["Nomor Kursi", "Nama Peserta", "NIM/NIK/No. Ujian", "Tanda Tangan"];
   sheet.getRange(r, startCol, 1, headers.length).setValues([headers])
     .setFontFamily("Times New Roman").setFontSize(12).setFontWeight("bold")
-    .setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
+    .setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true)
+    .setBorder(true, true, true, true, true, true); // 🔹 borders for header row
 
   // Merge W & X for header
   sheet.getRange(r, startCol + 3, 1, 2).merge();
@@ -2149,7 +2155,8 @@ function generateAttendanceSheet() {
   const bodyRange = sheet.getRange(r, startCol, rowsOut.length, headers.length + 1);
   bodyRange.setValues(rowsOut)
     .setFontFamily("Times New Roman").setFontSize(12)
-    .setVerticalAlignment("middle");
+    .setVerticalAlignment("middle")
+    .setBorder(true, true, true, true, true, true); // 🔹 add all borders
 
   // Alignment rules
   sheet.getRange(r, startCol, rowsOut.length, 1).setHorizontalAlignment("center"); // Nomor Kursi
@@ -2159,23 +2166,63 @@ function generateAttendanceSheet() {
 
   r += rowsOut.length + 2;
 
-  // --- Closing signature area ---
-  sheet.getRange(r, startCol + 2).setValue("Yogyakarta, " + tanggal)
-    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
-  r += 2;
-  sheet.getRange(r, startCol + 2).setValue("Pengawas")
-    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
-  r += 4;
-  sheet.getRange(r, startCol + 2).setValue("_____________________")
-    .setFontFamily("Times New Roman").setFontSize(12).setHorizontalAlignment("right");
+// --- Closing signature area aligned to X ---
+sheet.getRange(r, 24).setValue("Yogyakarta, " + tanggal)
+  .setFontFamily("Times New Roman")
+  .setFontSize(12)
+  .setHorizontalAlignment("right");
+
+// Next row immediately
+r += 1;
+
+sheet.getRange(r, 24).setValue("Pengawas")
+  .setFontFamily("Times New Roman")
+  .setFontSize(12)
+  .setHorizontalAlignment("right");
+
+// Next row for the underline
+r += 1;
+sheet.getRange(r, 24)
+  .setFontFamily("Times New Roman")
+  .setFontSize(12)
+  .setHorizontalAlignment("right")
+  .setBorder(false, false, true, false, false, false) // underline via bottom border
+  .setValue("..........................."); // empty cell
 
   const lastPrintRow = r; // include underline
 
-  // --- Force sync before export ---
   SpreadsheetApp.flush();
 
   // --- Export only T:Y and until lastPrintRow ---
-  exportAttendanceAsPdf(sheet, startCol, endCol, lastPrintRow, groupName, tanggal);
+  const result = exportAttendanceAsPdf(sheet, startCol, endCol, lastPrintRow, groupName, tanggal);
+
+  // --- Show modal dialog with link ---
+  const html = `
+    <div style="
+        font-family: 'Google Sans', Arial, sans-serif; 
+        padding:16px; 
+        line-height:1.5; 
+        background:#fefefe; 
+        color:#222; 
+        border-radius:10px; 
+        box-shadow:0 2px 5px rgba(0,0,0,0.15);
+    ">
+      <h2 style="margin-top:0; color:#2e7d32;">✅ Presensi Created</h2>
+      <p>Your attendance sheet for <b>${groupName}</b> on <b>${tanggal}</b> has been saved to Google Drive.</p>
+      <p>
+        <a href="${result.url}" target="_blank" style="color:#1e88e5; text-decoration:none;">Click here to open/download the file</a>
+      </p>
+      <button onclick="google.script.host.close()" style="
+          background:#1e88e5;
+          color:white;
+          border:none;
+          border-radius:6px;
+          padding:8px 12px;
+          cursor:pointer;
+      ">Close</button>
+    </div>
+  `;
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(450).setHeight(220), "Presensi Download");
 }
 
 
@@ -2209,7 +2256,7 @@ function exportAttendanceAsPdf(sheet, startCol, endCol, lastRow, groupName, tang
     '&pagenumbers=false' +
     '&fzr=false' +
     `&r1=0&r2=${lastRow - 1}` +               // rows 1 → lastRow
-    `&c1=${startCol - 1}&c2=${endCol - 1}`;   // cols T → Y 🔹
+    `&c1=${startCol - 1}&c2=${endCol - 1}`;   // cols T → Y
 
   const token = ScriptApp.getOAuthToken();
   const response = UrlFetchApp.fetch(url, {
@@ -2223,7 +2270,9 @@ function exportAttendanceAsPdf(sheet, startCol, endCol, lastRow, groupName, tang
     : DriveApp.createFolder(folderName);
 
   const blob = response.getBlob().setName(`Presensi_${groupName}_${tanggal}.pdf`);
-  folder.createFile(blob);
+  const file = folder.createFile(blob);
+
+  return { success: true, url: file.getUrl() }; // 🔹 return for dialog
 }
 
 
