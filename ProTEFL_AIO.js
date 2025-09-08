@@ -333,7 +333,7 @@ function toggleVerifyStudentIDView() {
 
 /** Verify payments (proof columns + payment status) */
 function toggleVerifyPaymentView() {
-  var keepCols = ["A", "G", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI"];
+  var keepCols = ["A", "D", "G", "AI", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ"];
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
@@ -1106,8 +1106,8 @@ function showDefaultSidebar() {
 
       <p class="footer-note">
         Reminder: speed is great, but accurate data keeps the complaints away. 
-        PS. The title is obviously inspired by Andy Field way of naming his books. 
-        I mean, "Discovering statistics using IBM SPSS statistics: and **x and d**** and rock 'n' roll" ...what a legend.
+        PS. The title is obviously inspired by Andy Field way of naming his Statistics books. 
+        I mean, "Discovering statistics using IBM SPSS statistics: and BLEEP and BLEEP and rock 'n' roll" ...what a BLEEP legend.
       </p>
 
       <script>
@@ -1365,7 +1365,7 @@ function showVerifyPaymentSidebar() {
   <html>
     <head>
       <meta charset="UTF-8">
-      <title>Verify Payment</title>
+      <title>Verify Participants Payment</title>
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
       <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
       <style>
@@ -1417,20 +1417,50 @@ function showVerifyPaymentSidebar() {
     </head>
     <body>
 
-      ${createCardHTML('💰','Verify Payment Quick Guide',[
-        "This view is for verifying test taker payments — this keeps ULB overlord(s) happy!",
-        "Online payment via transfer:",
-        "Check the <b>Bukti Bayar</b> attachment in column <b>AU</b>.",
-        "Verify: is it authentic? Not fake? Matches participant?",
-        "If everything is ✅, select <b>LUNAS</b> in column <b>AX</b>.",
-        "If any issue arises, select the other status(es) in accordance with the problem.",
-        "Done! Move on to the next participant.",
-        "Manual payment (e.g. LURING / on-demand):",
-        "Ensure the participant received their proof of payment / kuitansi / receipt.",
+      <p><i>"This view is for verifying test taker payments — this keeps ULB overlord(s) happy! 🤔😢"</i></p>
+
+      <section>
+        <h2>Overview</h2>
+        <p>
+          For participants taking the test in our lab on a specific schedule, we don’t want freeloaders or non-paying registrants sneaking into SEB from home.  
+          That’s why receipts include a different <b>Nomor Ujian</b> (test ID).  
+          Compare how <b>NIM</b> (Column D) and <b>Test ID</b> (Column AI) differ once you write <code>_OFFGRID</code> in Column BI.  
+          Only those who actually paid can log in on the test date.  
+        </p>
+        <p>
+          To start working, follow the guidelines below.  
+          The online payment section is mostly legacy (Glacier + virtual accounts handle it now).  
+          Day-to-day, we deal with <b>pembayaran tes luring</b> in Lab Bahasa ULB.
+        </p>
+      </section>
+
+      <section>
+        <h2>⚠️ Attention</h2>
+        <p>This workflow works under a few assumptions:</p>
+        <ul>
+          <li>Participants registered via Google Form (so their names exist in this sheet).</li>
+          <li>You, the admin, must locate the correct row — <b>watch out for duplicates!</b></li>
+          <li>Some participants register more than once with slightly different data or test dates.</li>
+          <li>If you find multiple entries with the same name, ask the participant which one is correct.</li>
+          <li>Update the row for the correct <b>date</b> (see Column BJ as confirmed by the participant).</li>
+        </ul>
+      </section>
+
+      ${createCardHTML('💵','Manual / Cash Payment (LURING / On-demand)',[
+        "Confirm the participant received their proof of payment (kuitansi / receipt).",
         "Search their name in column <b>AS</b>.",
-        "Copy the <b>Nomor Ujian</b> from their receipt into column <b>G</b>. Ignore other text like D4, S1, S2, S3 — overwrite them, those are just placeholder (I am too lazy to restructure the whole Google Form structure after all these formulas and magic).",
-        "Important: write <b>_OFFGRID</b> in column <b>BI</b>. This forces the workbook to use the receipt’s <b>Nomor Ujian</b> instead of the default NIM. Why? To make sure that non-paying registrants cannot sneak in/log in to ProTEFL SEB using their NIM.",
-        "Pro tip: Always double-check attachments or make sure you write the correct Nomor Ujian to avoid complaints later on. ⚡"
+        "If you find more than one entry of their exact name, make sure you are looking at the correct test date in column <b>BJ</b>.",
+        "Copy the <b>Nomor Ujian</b> from their receipt into column <b>G</b>. Ignore placeholders like D4, S1, S2, S3 — overwrite them. (I’m too lazy to refactor the whole Google Form structure after all these formulas and w/hackjobs).",
+        "Important: Write <b>_OFFGRID</b> in column <b>BI</b>. This forces the workbook to use the receipt’s <b>Nomor Ujian</b> instead of the default NIM. Why? So non-payers can’t log in into SEB with just their NIM in the test date.",
+        "Pro tip: Always double-check attachments and make sure you typed the correct Nomor Ujian — saves you complaints later ⚡."
+      ])}
+
+      ${createCardHTML('💰','Online Payment',[
+        "Check the <b>Bukti Bayar</b> attachment in column <b>AU</b>.",
+        "Verify authenticity — is it real, not recycled, and matches the participant?",
+        "If ✅, mark <b>LUNAS</b> in column <b>AX</b>.",
+        "If not, select the appropriate status depending on the issue.",
+        "Done. Move on to the next participant."
       ])}
 
       <script>
