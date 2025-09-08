@@ -382,7 +382,7 @@ function toggleVerifyAttendanceView() {
 
 /** Group participants & manage contacts (IDs + contact columns) */
 function toggleGroupingContactsView() {
-  const keepCols = ["A", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
+  const keepCols = ["A", "G", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
 }
 
@@ -1770,7 +1770,7 @@ const SHEET_INITIALIZATIONS = [
     {
       sheetName: '01. STATISTIK',
       cells: {
-        'A40': 'LINK GRUP WA',
+        'A40': 'NAMA GRUP WA',
         'F40': 'Jumlah Peserta',
       }
     },
@@ -2733,6 +2733,26 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15"), "AFT", "MOR"))`],
 
   // ====== OTHER SHEETS ======
+
+  // 01. STATISTIK
+    ['01. STATISTIK', 'A41', "ARRAY", `=LET(
+      data, UNIQUE(FILTER('Form responses 1'!AO2:AO,
+        (LEN('Form responses 1'!AO2:AO)>0) *
+        (NOT(REGEXMATCH('Form responses 1'!AO2:AO,"BELUM PILIH JADWAL")))
+      )),
+      SORT(
+        data,
+        VALUE(REGEXEXTRACT(data, "\d+")), TRUE,
+        REGEXEXTRACT(data, "^[A-Z]+"), TRUE
+      )
+    )
+    `],
+    ['01. STATISTIK', 'B41', "ARRAY", `=ARRAYFORMULA(
+      IF(LEN(A41:A1000),
+        COUNTIF('Form responses 1'!AO:AO, A41:A1000),
+      )
+    )
+    `],
 
   // 02. CEKTESTHISTORY
     ['02. CEKTESTHISTORY', 'A2', "ARRAY", `=ARRAYFORMULA('Form responses 1'!AJ2:AJ)`],
