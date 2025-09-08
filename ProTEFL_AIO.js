@@ -180,6 +180,7 @@ function onOpen() {
           .addItem("Verify Payment", "toggleVerifyPaymentView")
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
           .addItem("Grouping & Contacts", "toggleGroupingContactsView")
+          .addItem("Reset View", "resetView")
       )
     .addToUi();
 
@@ -300,35 +301,44 @@ function applyCustomView_(sheetName, keepCols, sidebarFn, label, forceOn) {
   var keepIndexes = keepCols.map(letterToColumn_);
   var lastCol = sheet.getLastColumn();
 
-  var activateView = forceOn || currentView !== label;
+  // If already in this view and not forced, do nothing
+  if (currentView === label && !forceOn) return;
 
-  // Always reset → show everything before hiding
+  // Reset → show everything before hiding the columns we don’t need
   sheet.showColumns(1, lastCol);
 
-  if (activateView) {
-    // Hide all except keepCols
-    var rangesToHide = [];
-    var start = null;
-    for (var col = 1; col <= lastCol; col++) {
-      if (!keepIndexes.includes(col)) {
-        if (start === null) start = col;
-      } else if (start !== null) {
-        rangesToHide.push([start, col - start]);
-        start = null;
-      }
+  // Hide all except keepCols
+  var rangesToHide = [];
+  var start = null;
+  for (var col = 1; col <= lastCol; col++) {
+    if (!keepIndexes.includes(col)) {
+      if (start === null) start = col;
+    } else if (start !== null) {
+      rangesToHide.push([start, col - start]);
+      start = null;
     }
-    if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
-    rangesToHide.forEach(r => sheet.hideColumns(r[0], r[1]));
-
-    if (sidebarFn) sidebarFn();
-    props.setProperty("currentView", label);
-  } else {
-    // Toggle OFF → reset to show all
-    props.setProperty("currentView", "");
   }
+  if (start !== null) rangesToHide.push([start, lastCol - start + 1]);
+  rangesToHide.forEach(r => sheet.hideColumns(r[0], r[1]));
 
-  // Ensure default view is reinstalled if this is the Default
+  if (sidebarFn) sidebarFn();
+  props.setProperty("currentView", label);
+
+  // Ensure default view is reinstalled if needed
   if (label === "Default") setupDefaultViewTrigger();
+}
+
+// ----------------------------------------------------------------------------
+// Reset view (show all columns)
+// ----------------------------------------------------------------------------
+function resetView() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (!sheet) return;
+  var lastCol = sheet.getLastColumn();
+  sheet.showColumns(1, lastCol);
+
+  // Clear stored view
+  PropertiesService.getDocumentProperties().setProperty("currentView", "");
 }
 
 // ............................................................................
