@@ -180,6 +180,7 @@ function onOpen() {
           .addItem("Verify Payment", "toggleVerifyPaymentView")
           .addItem("Verify Attendance", "toggleVerifyAttendanceView")
           .addItem("Grouping & Contacts", "toggleGroupingContactsView")
+          .addItem("PPB (Pusing Pala Barbie)", "togglePPBView")
           .addItem("Reset View", "resetView")
       )
     .addToUi();
@@ -370,6 +371,21 @@ function toggleVerifyPaymentView() {
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
+/** PPB (Pusing Pala Barbie) custom view */
+function togglePPBView() {
+  var keepCols = [
+    "A","C","D","E","F","V","W",
+    "AE","AF","AG","AH","AI",
+    "AN","AO","AP",
+    "AX","AY",
+    "BB","BC",
+    "BI","BJ",
+    "BO","BS","BT","BU","BV","BW","BX",
+    "BZ","CB","CD","CF","CG","CI"
+  ];
+  applyCustomView_("Form responses 1", keepCols, showPPBSidebar, "PPB");
+}
+
 /** Verify attendance (test date, codes, and presence fields) */
 function toggleVerifyAttendanceView() {
   var keepCols = [
@@ -382,7 +398,7 @@ function toggleVerifyAttendanceView() {
 
 /** Group participants & manage contacts (IDs + contact columns) */
 function toggleGroupingContactsView() {
-  const keepCols = ["A", "G", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
+  const keepCols = ["A", "F", "G", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
 }
 
@@ -1102,8 +1118,8 @@ function showDefaultSidebar() {
 
     <body>
       <h2>Welcome to ProTEFL MDMA</h2>
-      <p><i>(ProTEFL Monthly Data Management Admin)</i></p>
-      <p>It's ProTEFL but on Speed ⚡</p>
+      <p><i>(Monthly Data Management Admin)</i></p>
+      <p>ProTEFL on Speed ⚡🥴😵</p>
 
       <!-- Cards -->
       ${createCardHTML('assignment','Registration',['Google Forms Entry','Manual Entry (menu planned)'])}
@@ -1360,7 +1376,7 @@ function showVerifyStudentIDSidebar() {
         "Step-by-step check:",
         "Check column <b>BC</b> (Status):",
         "<b>COCOK</b>: ✅ Everything matches — move on to the next participant.",
-        "<b>CEK NAMA</b>: Minor capitalization mismatch. No fix needed here; we already use corrected proper names. Reference <b>06. UPLOADSKOR</b> for tidy names (say thanks Windi right now 😒).",
+        "<b>CEK NAMA</b>: Minor capitalization mismatch. No fix needed here; we already use corrected proper names. Reference <b>06. UPLOADSKOR</b> for tidy names (for every thanks Windi gains 1 rupiah in his pocket [of course not!]).",
         "<b>SALAH NIM</b>: Name in column <b>E</b> or <b>BA (duplicates of E)</b> doesn’t match the database (<b> shown in BB</b>). Ask the participant for their ID card and update NIM in <b>E</b> ONLY. Data shown elsewhere are all duplicates of E.",
         "<b>#N/A</b>: No match found. Investigate and resolve manually. Ask the students for their KTM, write the correct NIM. When issues persist, it means we do not have their data in DATABASEMAHASISWA. Please update it manually based on the data on their KTM. Usually happens for students registering as INTAKE students (course begining on February).",
         "Pro tip: Careful checking now saves a flood of complaints later. 👍"
@@ -1729,6 +1745,41 @@ function showVerifyAttendanceSidebar() {
   `;
 
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("Verify Attendance"));
+}
+
+function showPPBSidebar() {
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <base target="_top">
+      <style>
+        body { 
+          font-family: 'Google Sans', Arial, sans-serif; 
+          padding: 20px; 
+          background: #f4f6f8; 
+          color: #222; 
+          line-height: 1.6; 
+        }
+        h2 { color:#1a1a1a; margin-top:0; }
+        p { margin-top:12px; }
+        .card {
+          background: #dbe9f9; 
+          border-radius: 10px; 
+          padding: 16px; 
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+      </style>
+    </head>
+    <body>
+      <h2>PPB View Active</h2>
+      <div class="card">
+        <p>Here you go, it's all yours. Enjoy. Bone apple tea, remember not to overwrite key data accidentally without purpose mmkay?</p>
+      </div>
+    </body>
+  </html>
+  `;
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(html).setTitle("PPB View"));
 }
 
 
