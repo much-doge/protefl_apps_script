@@ -2027,7 +2027,7 @@ const FORM_RESPONSES_1_HEADER = [
     ]
   ]
   
-  // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // INSERT ULB HEADER FUNCTION
 //
 // Purpose:
@@ -2052,10 +2052,10 @@ function insertULBHeader() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   if (!sheet) return;
 
-  // --- Safety cleanup: only the header zone (rows 1–10, cols T:Z) ---
-  const startRow = 1, numRows = 10;
+  // --- Safety cleanup: only the header zone (rows 1–9, cols T:Y) ---
+  const startRow = 1, numRows = 9;
   const startCol = 20; // T
-  const endCol = 26;   // Z
+  const endCol = 25;   // Y
   const numCols = endCol - startCol + 1;
 
   const headerZone = sheet.getRange(startRow, startCol, numRows, numCols);
@@ -2113,9 +2113,6 @@ function insertULBHeader() {
     true, false, false, false, false, false, "black", SpreadsheetApp.BorderStyle.SOLID_MEDIUM
   );
 
-  // --- Title (Times New Roman 12, bold) on row 10 across T:Y ---
-  setMergedCentered("T10:Y10", "DAFTAR HADIR TES ProTEFL LURING", "Times New Roman", 12, true);
-
   // --- Resize specific rows ---
   [5, 8, 9, 11].forEach(r => sheet.setRowHeight(r, 5));
 }
@@ -2123,7 +2120,7 @@ function insertULBHeader() {
   /**
    * Main function to initialize/refresh the sheets.
    */
-  function initializeSheets() {
+function initializeSheets() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
   
     // --- 1. Create sheets as necessary ---
@@ -2188,14 +2185,29 @@ function generateAttendanceSheet() {
   const endCol = 25;   // Y 🔹 extended one column right
   const numCols = endCol - startCol + 1;
 
-  // --- Only clear presensi area AFTER row 12 (so header + spacing stay) ---
-  sheet.getRange(12, startCol, sheet.getMaxRows() - 11, numCols).clear();
+  // --- Clear old title + presensi area (rows 10 → bottom) ---
+  const cleanupRange = sheet.getRange(10, startCol, sheet.getMaxRows() - 9, numCols);
+  cleanupRange.breakApart();
+  cleanupRange.clear();
 
   // --- Check header first (T1:Y8) ---
   const headerCheck = sheet.getRange(1, startCol, 8, numCols).getValues().flat().join(" ");
   if (!headerCheck.includes("KEMENTERIAN PENDIDIKAN")) {
     insertULBHeader(); // only run if not found
   }
+
+  // --- Insert attendance sheet title (Times New Roman 12, bold) ---
+  const setMergedCentered = (a1, text, fontFamily, fontSize, bold) => {
+    const r = sheet.getRange(a1);
+    r.merge();
+    r.setValue(text)
+      .setFontFamily(fontFamily)
+      .setFontSize(fontSize)
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle")
+      .setFontWeight(bold ? "bold" : "normal");
+  };
+  setMergedCentered("T10:Y10", "DAFTAR HADIR TES ProTEFL LURING", "Times New Roman", 12, true);
 
   // --- Test details (row 12+) ---
   let r = 12;
