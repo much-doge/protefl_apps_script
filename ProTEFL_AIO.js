@@ -355,13 +355,13 @@ function toggleDefaultView(forceOn) {
 
 /** Focus on rescheduling participants (schedule + comms columns) */
 function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI"];
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI", "BJ"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
 /** Verify student IDs (identity & student database link) */
 function toggleVerifyStudentIDView() {
-  var keepCols = ["C","D","E","AZ","BA","BB","BC"];
+  var keepCols = ["C","D","E","AZ","BA","BB","BC", "BJ"];
   applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
 }
 
