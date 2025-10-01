@@ -349,25 +349,25 @@ function resetView() {
 
 /** Show lean "Default" view (basic registration essentials) */
 function toggleDefaultView(forceOn) {
-  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX"];
+  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX", "CI"];
   applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
 }
 
 /** Focus on rescheduling participants (schedule + comms columns) */
 function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI", "BJ"];
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
 /** Verify student IDs (identity & student database link) */
 function toggleVerifyStudentIDView() {
-  var keepCols = ["C","D","E","AZ","BA","BB","BC", "BJ"];
+  var keepCols = ["C","D","E","AZ","BA","BB","BC", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showVerifyStudentIDSidebar, "Verify Student ID");
 }
 
 /** Verify payments (proof columns + payment status) */
 function toggleVerifyPaymentView() {
-  var keepCols = ["A", "D", "G", "AI", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ"];
+  var keepCols = ["A", "D", "G", "AI", "AN", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
@@ -389,9 +389,9 @@ function togglePPBView() {
 /** Verify attendance (test date, codes, and presence fields) */
 function toggleVerifyAttendanceView() {
   var keepCols = [
-    "A","C","D","G","V","W","AI","AJ","AL","AN","AO",
+    "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "BB",
     "BC","BI","BJ","BL","BN","BQ","BS",
-    "BU","BV","BW","BX","CB","CG"
+    "BU","BV","BW","BX","CB","CG", "CI"
   ];
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
