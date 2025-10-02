@@ -381,7 +381,7 @@ function togglePPBView() {
     "BB","BC",
     "BI","BJ",
     "BO","BS","BT","BU","BV","BW","BX",
-    "BZ","CB","CD","CF","CG","CI"
+    "BZ","CB","CD","CF","CG","CI","CJ"
   ];
   applyCustomView_("Form responses 1", keepCols, showPPBSidebar, "PPB");
 }
@@ -390,8 +390,8 @@ function togglePPBView() {
 function toggleVerifyAttendanceView() {
   var keepCols = [
     "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "BB",
-    "BC","BI","BJ","BL","BN","BQ","BS",
-    "BU","BV","BW","BX","CB","CG", "CI"
+    "BC","BI","BJ","BL","BN","BO","BP","BQ","BS","BT",
+    "BU","BV","BW","BX","CB","CG", "CI","CJ"
   ];
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
