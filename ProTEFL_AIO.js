@@ -389,7 +389,7 @@ function togglePPBView() {
 /** Verify attendance (test date, codes, and presence fields) */
 function toggleVerifyAttendanceView() {
   var keepCols = [
-    "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "BB",
+    "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "AX", "BB",
     "BC","BI","BJ","BL","BN","BO","BP","BQ","BS","BT",
     "BU","BV","BW","BX","CB","CG", "CI","CJ"
   ];
