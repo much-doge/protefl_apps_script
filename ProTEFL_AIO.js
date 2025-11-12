@@ -367,7 +367,7 @@ function toggleVerifyStudentIDView() {
 
 /** Verify payments (proof columns + payment status) */
 function toggleVerifyPaymentView() {
-  var keepCols = ["A", "D", "G", "AI", "AN", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ", "CI"];
+  var keepCols = ["A", "C", "D", "G", "AI", "AN", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
