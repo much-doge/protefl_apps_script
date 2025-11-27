@@ -1934,6 +1934,27 @@ const SHEET_INITIALIZATIONS = [
     {
       sheetName: 'SINICOPYHASILSKOR',
       cells: {} // Leave blank/empty, just creates sheet
+    },
+    {
+      sheetName: 'db_export',
+      cells: {
+        'A1': 'valid',
+        'B1': 'student_id',
+        'C1': 'name',
+        'D1': 'faculty',
+        'E1': 'department',
+        'F1': 'level',
+        'G1': 'test_date',
+        'H1': 'session',
+        'I1': 'mode',
+        'J1': 'converted_list',
+        'K1': 'converted_str',
+        'L1': 'converted_rdg',
+        'M1': 'itp_pred',
+        'N1': 'status',
+        'O1': 'itp_adjust',
+        'P1': 'itp_raw'
+      }
     }
   ];
 
@@ -2023,7 +2044,8 @@ const FORM_RESPONSES_1_HEADER = [
     ['CF1', 'Cari gris'],
     ['CG1', 'God Mode'],
     ['CH1', 'Skor TKBI'],
-    ['CI1', 'Helper Grup Pagi Siang']
+    ['CI1', 'Helper Grup Pagi Siang'],
+    ['CJ1', 'validasi export']
     ]
   ]
   
@@ -2394,7 +2416,8 @@ function exportAttendanceAsPdf(sheet, startCol, endCol, lastRow, groupName, tang
 const DROPDOWN_CONFIG = [
     ['Form responses 1', "V", ['Yes', 'No', 'Tidak Jadi Tes']],
     ['Form responses 1', "AG", ['Sent', 'Confirmed', 'Sent-No Answer']],
-    ['Form responses 1', "AX", ['LUNAS', 'OKE', '😡', 'CEK', 'Nama Beda', 'Tidak Ada Nama', 'PALSU', 'SALAH BUKTI', 'Jumlah Salah', 'Pindah Pelatihan']]
+    ['Form responses 1', "AX", ['LUNAS', 'OKE', '😡', 'CEK', 'Nama Beda', 'Tidak Ada Nama', 'PALSU', 'SALAH BUKTI', 'Jumlah Salah', 'Pindah Pelatihan']],
+    ['Form responses 1', "CJ", ['valid_s', 'valid_t', 'valid_scheat', 'valid_tcheat', 'valid_streat', 'discard', 'valid_s_kerjasama', 'valid_t_kerjasama']]
   ];
   
 // ---------------------------------------------------------------------------
@@ -2932,6 +2955,42 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ),  
     1, TRUE
     )`],
+
+  // db_export
+    ['db_export', 'A2', "ARRAY",
+      `=SORT(
+        HSTACK(
+          FILTER('Form responses 1'!CJ2:CJ, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BP2:BP, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!AJ2:AJ, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!CA2:CA, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!CB2:CB, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BZ2:BZ, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BJ2:BJ, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!CI2:CI, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!AN2:AN, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BU2:BU, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BV2:BV, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BW2:BW, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BX2:BX, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER('Form responses 1'!BT2:BT, ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))),
+          FILTER(
+            IF('Form responses 1'!CG2:CG="", 0, 'Form responses 1'!CG2:CG),
+            ('Form responses 1'!CJ2:CJ<>"") * NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))
+          ),
+          FILTER('Form responses 1'!BX2:BX,
+            ('Form responses 1'!CJ2:CJ<>"") *
+            NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))
+          )
+          -
+          FILTER(
+            IF('Form responses 1'!CG2:CG="", 0, 'Form responses 1'!CG2:CG),
+            ('Form responses 1'!CJ2:CJ<>"") *
+            NOT(REGEXMATCH(LOWER('Form responses 1'!CJ2:CJ),"discard"))
+          )
+        ),
+      1, TRUE)`
+    ],
   // 08. DATAKUITANSI
     ['08. DATAKUITANSI', 'A2', "ARRAY", `=SORT(
         FILTER({
