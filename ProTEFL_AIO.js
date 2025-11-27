@@ -1821,8 +1821,25 @@ const SHEET_INITIALIZATIONS = [
     {
       sheetName: '01. STATISTIK',
       cells: {
-        'A40': 'NAMA GRUP WA',
-        'B40': 'Jumlah Peserta',
+        'A1': 'NAMA GRUP WA',
+        'B1': 'Jumlah Peserta',
+        'D1': 'TIMESTAMP',
+        'C2': 'POTENSI DUPLIKAT',
+        'E1': 'TEST ID',
+        'F1': 'NAMA',
+        'G1': 'TGL TES',
+        'H1': 'RESC STATUS',
+        'I1': 'RESC ACTION',
+        'J1': 'SKOR',
+        'N2': 'REKAP STATUS RESCHEDULE',
+        'O1': 'TIMESTAMP',
+        'P1': 'TEST ID',
+        'Q1': 'NAMA',
+        'R1': 'RESC STATUS',
+        'S1': 'RESC ACTION',
+        'T1': 'TGL TES',
+        'U1': 'NOTES',
+        'V1': 'LINK KORESPONDENSI'
       }
     },
     {
@@ -2821,7 +2838,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
   // ====== OTHER SHEETS ======
 
   // 01. STATISTIK
-    ['01. STATISTIK', 'A41', "ARRAY", `=LET(
+    ['01. STATISTIK', 'A2', "ARRAY", `=LET(
       data, UNIQUE(FILTER('Form responses 1'!AO2:AO,
         (LEN('Form responses 1'!AO2:AO)>0) *
         (NOT(REGEXMATCH('Form responses 1'!AO2:AO,"BELUM PILIH JADWAL")))
@@ -2833,12 +2850,51 @@ function getLastDataRow_(sheet, keyCol = 3) {
       )
     )
     `],
-    ['01. STATISTIK', 'B41', "ARRAY", `=ARRAYFORMULA(
+    ['01. STATISTIK', 'B2', "ARRAY", `=ARRAYFORMULA(
       IF(LEN(A41:A1000),
         COUNTIF('Form responses 1'!AO:AO, A41:A1000),
       )
     )
     `],
+    ['01. STATISTIK', 'D2', "ARRAY",
+      `=IFERROR(
+          SORT(
+            FILTER(
+              {
+                TEXT('Form responses 1'!A:A, "dd/mm/yyyy hh:mm:ss"),
+                'Form responses 1'!AI:AI,
+                'Form responses 1'!AJ:AJ,
+                'Form responses 1'!AL:AL,
+                'Form responses 1'!V:V,
+                'Form responses 1'!W:W,
+                'Form responses 1'!BX:BX
+              },
+              COUNTIF('Form responses 1'!AI:AI, 'Form responses 1'!AI:AI) > 1
+            ),
+            2, TRUE,
+            3, TRUE
+          ),
+          "TIDAK ADA DUPLIKASI PADA KOLOM AI"
+        )`
+    ],
+    ['01. STATISTIK', 'O2', "ARRAY",
+      `=SORT(
+          FILTER(
+            {
+              'Form responses 1'!A:A,
+              'Form responses 1'!AI:AI,
+              'Form responses 1'!AJ:AJ,
+              'Form responses 1'!V:V,
+              'Form responses 1'!W:W,
+              'Form responses 1'!AL:AL,
+              'Form responses 1'!AF:AF,
+              'Form responses 1'!AE:AE
+            },
+            'Form responses 1'!V:V = "YES"
+          ),
+          6, TRUE
+        )`
+    ],
 
   // 02. CEKTESTHISTORY
     ['02. CEKTESTHISTORY', 'A2', "ARRAY", `=ARRAYFORMULA('Form responses 1'!AJ2:AJ)`],
