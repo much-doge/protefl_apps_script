@@ -355,7 +355,7 @@ function toggleDefaultView(forceOn) {
 
 /** Focus on rescheduling participants (schedule + comms columns) */
 function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","BI", "BJ", "CI"];
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","AV","AX","BI", "BJ", "CI"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
