@@ -2782,7 +2782,22 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ['Form responses 1', 'BJ2', "ARRAY", `=ARRAYFORMULA( IF( LEN($C2:$C)=0, "", IF( LEN($AL2:$AL)=0, "GUGUR", IF( ( LEN($BL2:$BL)=0 ) * ( LEN($BX2:$BX)=0 ) = 1, "SCHEDULED", IF( $BL2:$BL="tidak", "RESCHEDULE", IF( ( LEN($BX2:$BX)>0 ) * ( LEN($AL2:$AL)>0 ) = 1, TEXT( DATE( VALUE(LEFT($AL2:$AL,4)), VALUE(MID($AL2:$AL,5,2)), VALUE(RIGHT($AL2:$AL,2)) ), "yyyy-mm-dd" ), "" ) ) ) ) ) )`],
     ['Form responses 1', 'BK2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", AR2:AR, ""))`],
     ['Form responses 1', 'BM2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", AQ2:AQ, ""))`],
-    ['Form responses 1', 'BN2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", '02. CEKTESTHISTORY'!E2:E, ""))`],
+    ['Form responses 1', 'BN2', "ARRAY", `=ARRAYFORMULA(
+        IF(
+          BP2:BP = "",
+          "",
+          IFERROR(
+            IF(
+              VLOOKUP(BP2:BP, '02. CEKTESTHISTORY'!A:C, 3, FALSE) = "",
+              0,
+              LEN(VLOOKUP(BP2:BP, '02. CEKTESTHISTORY'!A:C, 3, FALSE))
+              - LEN(SUBSTITUTE(VLOOKUP(BP2:BP, '02. CEKTESTHISTORY'!A:C, 3, FALSE), ";", ""))
+              + 1
+            ),
+            0
+          )
+        )
+      )`],
     ['Form responses 1', 'BP2', "ARRAY", `=ARRAYFORMULA(
         IF(C2:C<>"",
           VALUE(
