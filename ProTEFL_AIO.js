@@ -2034,8 +2034,8 @@ const FORM_RESPONSES_1_HEADER = [
     ['BK1', 'Urutan registrasi sesi'],
     ['BL1', 'Selesai tes'],
     ['BM1', 'Siakad atau TKBI'],
-    ['BN1', 'sudah berapa kali tes | MANUAL CEK SIAKAD OLD'],
-    ['BO1', 'cek angkatan'],
+    ['BN1', 'sudah berapa kali tes'],
+    ['BO1', 'nilai tertinggi'],
     ['BP1', 'nim/nik'],
     ['BQ1', 'kode unik sesi tes peserta'],
     ['BR1', 'nidn'],
@@ -2798,6 +2798,32 @@ function getLastDataRow_(sheet, keyCol = 3) {
           )
         )
       )`],
+    ['Form responses 1', 'BO2', "ARRAY", `=MAP(
+        BP2:BP,
+        LAMBDA(nim,
+          IF(
+            nim="",
+            "",
+            IFERROR(
+              MAX(
+                VALUE(
+                  SPLIT(
+                    VLOOKUP(
+                      nim,
+                      '02. CEKTESTHISTORY'!A:C,
+                      3,
+                      FALSE
+                    ),
+                    ";"
+                  )
+                )
+              ),
+              0
+            )
+          )
+        )
+      )
+      `],
     ['Form responses 1', 'BP2', "ARRAY", `=ARRAYFORMULA(
         IF(C2:C<>"",
           VALUE(
@@ -2912,9 +2938,6 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ],
 
   // 02. CEKTESTHISTORY
-    ['02. CEKTESTHISTORY', 'A2', "ARRAY", `=ARRAYFORMULA('Form responses 1'!AJ2:AJ)`],
-    ['02. CEKTESTHISTORY', 'B2', "ARRAY", `=ARRAYFORMULA( IF( 'Form responses 1'!BO2:BO="ijazah/test x5/angkatan lama", IF( LEN('Form responses 1'!AI2:AI)=11, 'Form responses 1'!AI2:AI, IF( 'Form responses 1'!C2:C="ProTEFL TKBI/SERDOS/Umum (bersertifikat resmi diakui SISTER KEMENDIKBUDRISTEK)", "Peserta TKBI/UMUM", IF( 'Form responses 1'!C2:C="ProTEFL SIAKAD UNY (tanpa sertifikat)", "Error: CEK NIM", "" ) ) ), "" ) )`],
-    ['02. CEKTESTHISTORY', 'D2', "ARRAY", `=ARRAYFORMULA( IF( B2:B<>"", SCAN( 0, B2:B, LAMBDA(acc, x, IF(x<>"", acc+1, acc) ) ), "" ) )`],
 
   // 03. KIRIM DATA KE PAK BIN H-1
     ['03. KIRIM DATA KE PAK BIN H-1', 'A2', "ARRAY", `=SORT(FILTER('Form responses 1'!AI2:AL, (NOT(ISNA('Form responses 1'!AL2:AL))) * ('Form responses 1'!AL2:AL <> "")), 4, TRUE)`],
