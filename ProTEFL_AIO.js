@@ -349,7 +349,7 @@ function resetView() {
 
 /** Show lean "Default" view (basic registration essentials) */
 function toggleDefaultView(forceOn) {
-  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX", "CI"];
+  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX", "CI", "CK"];
   applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
 }
 
@@ -391,7 +391,7 @@ function toggleVerifyAttendanceView() {
   var keepCols = [
     "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "AX", "BB",
     "BC","BI","BJ","BL","BN","BO","BP","BQ","BS","BT",
-    "BU","BV","BW","BX","CB","CG", "CI","CJ"
+    "BU","BV","BW","BX","CB","CG", "CI", "CJ", "CK"
   ];
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
@@ -1722,7 +1722,7 @@ function showVerifyAttendanceSidebar() {
         "<b>NIM mismatch:</b> mismatch between <b>D</b> and whatever test ID they used in <b>SINICOPYHASILSKOR</b>. Resolve by checking their used ID, refer to proctor notes, and do step two above. Is their NIM not matching? Check <b>BC</b> for <b>CEK NAMA</b>. Still no score? Confirm <b>D</b> vs attendance sheet ID. Or call Windi while he’s still around. Typing this is already exhausting.",
         "Step 4: When all else fails",
         "If nothing works and there is no attendance note, you are <b>COOKED 💀</b>.<br>Or they didn’t attend and the proctor forgot to mark it—prepare pitchfork, torch, gasoline, and proceed to set the proctor ablaze! It’s their <b>FAULT!</b>",
-        "Reminder: patience, coffee, and a deep breath are your best allies. Oh, what's that God Mode in CG? Try typing funny negative number in it and watch BX burns."
+        "Reminder: patience, coffee, and a deep breath are your best allies. Oh, what's that Pesawat Jet F-22 Raptor in CG? Try typing funny negative number in it and watch BX burns."
       ])}
 
       <script>
@@ -2059,7 +2059,7 @@ const FORM_RESPONSES_1_HEADER = [
 
     // -------------------- EXTRA HELPERS --------------------
     ['CF1', 'Cari gris'],
-    ['CG1', 'God Mode'],
+    ['CG1', 'Pesawat Jet F-22 Raptor (Interceptor)'],
     ['CH1', 'Skor TKBI'],
     ['CI1', 'Helper Grup Pagi Siang'],
     ['CJ1', 'validasi export'],
