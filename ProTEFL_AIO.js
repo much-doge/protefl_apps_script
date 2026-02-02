@@ -1845,11 +1845,12 @@ const SHEET_INITIALIZATIONS = [
     {
       sheetName: '02. CEKTESTHISTORY',
       cells: {
-        'A1': 'Name',
-        'B1': 'Student ID',
-        'C1': 'Whatever it broke if I delete C',
-        'D1': 'Urutan Cek (Helper)',
-        'E1': 'Test Taken',
+        'A1': 'NIM',
+        'B1': 'Nama',
+        'C1': 'Skor Tertinggi',
+        'D1': 'Tanggal Terbaru',
+        'E1': 'Skor ALL',
+        'F1': 'Tanggal ALL',
       }
     },
     {
@@ -2064,6 +2065,7 @@ const FORM_RESPONSES_1_HEADER = [
     ['CI1', 'Helper Grup Pagi Siang'],
     ['CJ1', 'validasi export'],
     ['CK1', 'anomali']
+    ['CL1', 'terakhir tes']
     ]
   ]
   
@@ -2876,6 +2878,58 @@ function getLastDataRow_(sheet, keyCol = 3) {
       0)))
     )`],
     ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15"), "AFT", "MOR"))`],
+    ['Form responses 1', 'CK2', "ARRAY", `=MAP(
+        BX2:BX,
+        BO2:BO,
+        LAMBDA(bx, bo,
+          IF(
+            OR(bx="", bx="TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR"),
+            "",
+            IF(
+              OR(bo="", bo=0),
+              "BELUM PERNAH TES",
+              IF(
+                bx >= bo + 100,
+                "MUNYUK NJALUK DIANTEMI",
+                IF(
+                  bx >= bo + 30,
+                  "ANOMALI",
+                  IF(
+                    bx < bo - 10,
+                    "DEGRADING",
+                    IF(
+                      bx < bo,
+                      "FLUCTUATING",
+                      "NORMAL"
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+      `],
+    ['Form responses 1', 'CL2', "ARRAY", `=ARRAYFORMULA(
+        IF(
+          (BX2:BX="") + (BX2:BX="TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR"),
+          "",
+          IFERROR(
+            TEXT(
+              VLOOKUP(
+                BP2:BP,
+                '02. CEKTESTHISTORY'!A:D,
+                4,
+                FALSE
+              ),
+              "yyyy-mm-dd"
+            ),
+            ""
+          )
+        )
+      )
+      `],
+
 
   // ====== OTHER SHEETS ======
 
@@ -2893,8 +2947,8 @@ function getLastDataRow_(sheet, keyCol = 3) {
     )
     `],
     ['01. STATISTIK', 'B2', "ARRAY", `=ARRAYFORMULA(
-      IF(LEN(A41:A1000),
-        COUNTIF('Form responses 1'!AO:AO, A41:A1000),
+      IF(LEN(A2:A1000),
+        COUNTIF('Form responses 1'!AO:AO, A2:A1000),
       )
     )
     `],
