@@ -2064,8 +2064,8 @@ const FORM_RESPONSES_1_HEADER = [
     ['CH1', 'Skor TKBI'],
     ['CI1', 'Helper Grup Pagi Siang'],
     ['CJ1', 'validasi export'],
-    ['CK1', 'anomali']
-    ['CL1', 'terakhir tes']
+    ['CK1', 'anomali'],
+    ['CL1', 'terakhir tes'],
     ]
   ]
   
