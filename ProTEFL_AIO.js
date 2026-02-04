@@ -2860,9 +2860,27 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ""
     )`],
     ['Form responses 1', 'BY2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 12, FALSE), "")`],
-    ['Form responses 1', 'BZ2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BP2,DATABASEMAHASISWA!$A:$E,5,FALSE), "")`],
-    ['Form responses 1', 'CA2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BP2,DATABASEMAHASISWA!$A:$E,3,FALSE), "")`],
-    ['Form responses 1', 'CB2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BP2,DATABASEMAHASISWA!$A:$E,4,FALSE), "")`],
+    ['Form responses 1', 'BZ2', "ARRAY", `=ARRAYFORMULA(
+        IF(C2:C<>"",
+          IFERROR(VLOOKUP(BP2:BP, DATABASEMAHASISWA!A:E, 5, FALSE), "CEK NIM"),
+          "DATA KOSONG"
+        )
+      )
+      `],
+    ['Form responses 1', 'CA2', "ARRAY", `=ARRAYFORMULA(
+        IF(C2:C<>"",
+          IFERROR(VLOOKUP(BP2:BP, DATABASEMAHASISWA!A:E, 3, FALSE), "CEK NIM"),
+          "DATA KOSONG"
+        )
+      )
+      `],
+    ['Form responses 1', 'CB2', "ARRAY", `=ARRAYFORMULA(
+        IF(C2:C<>"",
+          IFERROR(VLOOKUP(BP2:BP, DATABASEMAHASISWA!A:E, 4, FALSE), "CEK NIM"),
+          "DATA KOSONG"
+        )
+      )
+      `],
     ['Form responses 1', 'CC2', "FILLDOWN", `=SUM(CD2,CE2)`],
     ['Form responses 1', 'CD2', "FILLDOWN", `=IFS(
         BZ2=TEXT("D3","@"), 400,
