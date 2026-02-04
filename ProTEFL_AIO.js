@@ -3433,7 +3433,7 @@ const FORM_RESPONSES_1_COLOR_BANDS = [
   'BJ-BT',
   'BU-BY',
   'BZ-CF',
-  'CH-CI'
+  'CH-CK'
 ];
 
 
