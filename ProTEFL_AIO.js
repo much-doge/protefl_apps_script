@@ -28,6 +28,7 @@
 // Entry point to set up or refresh the entire ProTEFL Montly Data Management Admin workbook.
 // Run this only when initializing or re-initializing (destructive).
 // ============================================================================
+
 function main() {
   // --------------------------------------------------------------------------
   // Prerequisite: DATABASEMAHASISWA must exist
@@ -391,7 +392,7 @@ function toggleVerifyAttendanceView() {
   var keepCols = [
     "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "AX", "BB",
     "BC","BI","BJ","BL","BN","BO","BP","BQ","BS","BT",
-    "BU","BV","BW","BX","CB","CG", "CI", "CJ", "CK"
+    "BU","BV","BW","BX","CB","CG", "CI", "CJ", "CK", "CL", "CM", "CN"
   ];
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
