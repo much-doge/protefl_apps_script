@@ -3004,7 +3004,8 @@ function getLastDataRow_(sheet, keyCol = 3) {
               'Form responses 1'!W:W,
               'Form responses 1'!AL:AL,
               'Form responses 1'!AF:AF,
-              'Form responses 1'!AE:AE
+              'Form responses 1'!AE:AE,
+              'Form responses 1'!BX:BX
             },
             'Form responses 1'!V:V = "YES"
           ),
