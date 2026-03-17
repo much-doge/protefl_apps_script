@@ -2949,6 +2949,32 @@ function getLastDataRow_(sheet, keyCol = 3) {
         )
       )
       `],
+    ['Form responses 1', 'CM2', "ARRAY", `=ARRAYFORMULA(
+        IF(
+          (BX2:BX="") + (BX2:BX="TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR"),
+          "",
+          IFERROR(
+            TO_TEXT(
+              VLOOKUP(
+                BP2:BP,
+                '02. CEKTESTHISTORY'!A:D,
+                3,
+                FALSE
+              )
+            ),
+            ""
+          )
+        )
+      )
+      `],
+    ['Form responses 1', 'CN2', "FILLDOWN", `=IF(C2<>"",
+        IF(ISNA(VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 11, FALSE)),
+            "TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR",
+            VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 11, FALSE)
+        ),
+        ""
+        )
+      `],
 
 
   // ====== OTHER SHEETS ======
