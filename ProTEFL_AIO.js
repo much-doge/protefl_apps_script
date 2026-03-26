@@ -2896,7 +2896,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
       IF(CF2:CF="gris - S2", 100,
       0)))
     )`],
-    ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15"), "AFT", "MOR"))`],
+    ['Form responses 1', 'CI2', "FILLDOWN", `=IF(NOT(ISBLANK(W2)), IF(REGEXMATCH(W2, "13\.00|13\.15|13\.30"), "AFT", "MOR"), IF(REGEXMATCH(R2, "13\.00|13\.15|13\.30"), "AFT", "MOR"))`],
     ['Form responses 1', 'CK2', "ARRAY", `=MAP(
         BX2:BX,
         BO2:BO,
