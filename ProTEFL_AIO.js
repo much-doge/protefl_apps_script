@@ -43,6 +43,19 @@ function main() {
     return; // stop main
   }
 
+  // --------------------------------------------------------------------------
+  // Pull FABULASI
+  // --------------------------------------------------------------------------
+  const fabSuccess = pullFabulasi();
+  if (!fabSuccess) {
+    SpreadsheetApp.getUi().alert(
+      "Setup Aborted ❌",
+      "'10. FABULASI' pull failed. Main setup stopped.",
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    return;
+  }
+
   initializeSheets();
   setupAllDropdownsWithDummy();
   applyAllStyling();
@@ -92,6 +105,39 @@ function pullDatabaseMahasiswa() {
 
   } catch (e) {
     ui.alert("Pull Failed ❌", "Error pulling sheet: " + e.message, ui.ButtonSet.OK);
+    return false;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Pull FABULASI sheet from external spreadsheet
+// ----------------------------------------------------------------------------
+function pullFabulasi() {
+  const ui = SpreadsheetApp.getUi();
+  const destSS = SpreadsheetApp.getActiveSpreadsheet();
+
+  const FABULASI_URL = "https://docs.google.com/spreadsheets/d/1yGr6JFLn3t4qCLHgqKNuX8q5QxDUnlY6mU_QuESR7cU/edit";
+
+  try {
+    const sourceSS = SpreadsheetApp.openByUrl(FABULASI_URL);
+    const sourceSheet = sourceSS.getSheetByName("10. FABULASI");
+
+    if (!sourceSheet) {
+      ui.alert("Pull Failed ❌", "Source sheet '10. FABULASI' not found.", ui.ButtonSet.OK);
+      return false;
+    }
+
+    const existingSheet = destSS.getSheetByName("10. FABULASI");
+    if (existingSheet) destSS.deleteSheet(existingSheet);
+
+    const copiedSheet = sourceSheet.copyTo(destSS);
+    copiedSheet.setName("10. FABULASI");
+
+    ui.alert("Pull Successful ✅", "'10. FABULASI' copied successfully.", ui.ButtonSet.OK);
+    return true;
+
+  } catch (e) {
+    ui.alert("Pull Failed ❌", "Error pulling FABULASI: " + e.message, ui.ButtonSet.OK);
     return false;
   }
 }
