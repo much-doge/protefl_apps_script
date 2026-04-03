@@ -3580,6 +3580,33 @@ const COLOR_PALETTES = [
 
 
 // ---------------------------------------------------------------------------
+// Emphasis palettes (darker variants)
+// ---------------------------------------------------------------------------
+const EMPHASIS_PALETTES = [
+  {header:'#0d47a1', body:'#1565c0'},
+  {header:'#1b5e20', body:'#2e7d32'},
+  {header:'#880e4f', body:'#ad1457'},
+  {header:'#3e2723', body:'#6d4c41'},
+  {header:'#e65100', body:'#ff8f00'},
+  {header:'#8e0000', body:'#c62828'},
+  {header:'#311b92', body:'#4527a0'},
+  {header:'#004d40', body:'#00838f'},
+  {header:'#37474f', body:'#607d8b'},
+  {header:'#33691e', body:'#689f38'},
+];
+
+
+// ---------------------------------------------------------------------------
+// Columns to emphasize
+// ---------------------------------------------------------------------------
+const EMPHASIS_COLUMNS = [
+  'V', 'W', 'AF', 'AG',
+  'AP',
+  'AX',
+  'BI'
+];
+
+// ---------------------------------------------------------------------------
 // Helper: colAtoNum()
 // Converts a column label in A1 notation (e.g. "BZ") to a numeric index
 // Example: "A" -> 1, "Z" -> 26, "AA" -> 27, "BZ" -> 78
@@ -3609,6 +3636,51 @@ function getAutoFontColor(bg) {
 
 
 // ---------------------------------------------------------------------------
+// Emphasis layer (runs AFTER banding)
+// ---------------------------------------------------------------------------
+function applyFormResponses1Emphasis(sheet) {
+  const lastRow = Math.max(2, sheet.getLastRow());
+
+  FORM_RESPONSES_1_COLOR_BANDS.forEach((band, idx) => {
+    let [colStart, colEnd] = band.split('-').map(colAtoNum);
+
+    let dark, light;
+    if (band === "AS-AY") {
+      dark = "#1b5e20";
+      light = "#2e7d32";
+    } else {
+      const palette = EMPHASIS_PALETTES[idx % EMPHASIS_PALETTES.length];
+      dark = palette.header;
+      light = palette.body;
+    }
+
+    let headerFont = getAutoFontColor(dark);
+    let bodyFont = getAutoFontColor(light);
+
+    EMPHASIS_COLUMNS.forEach(colA => {
+      const col = colAtoNum(colA);
+
+      if (col >= colStart && col <= colEnd) {
+
+        // Header
+        sheet.getRange(1, col)
+             .setBackground(dark)
+             .setFontColor(headerFont);
+
+        // Body
+        if (lastRow > 1) {
+          sheet.getRange(2, col, lastRow - 1)
+               .setBackground(light)
+               .setFontColor(bodyFont)
+               .setFontWeight("bold");
+        }
+      }
+    });
+  });
+}
+
+
+// ---------------------------------------------------------------------------
 // applyAllStyling()
 // Applies all styling rules to target sheets. 
 // For "Form responses 1", it clears prior formatting and applies color bands
@@ -3634,7 +3706,7 @@ function applyAllStyling() {
            .setBackground(null)
            .setFontColor("#212121");
 
-      // Apply color band styling
+      // Base band coloring
       FORM_RESPONSES_1_COLOR_BANDS.forEach((band, idx) => {
         let [colStart, colEnd] = band.split('-').map(colAtoNum);
 
@@ -3665,6 +3737,9 @@ function applyAllStyling() {
                .setFontColor(bodyFont);
         }
       });
+
+      // Emphasis columns (AFTER bands)
+      applyFormResponses1Emphasis(sheet);
     }
   });
 }
