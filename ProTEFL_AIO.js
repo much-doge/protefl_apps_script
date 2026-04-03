@@ -33,6 +33,10 @@ function main() {
   // --------------------------------------------------------------------------
   // Prerequisite: DATABASEMAHASISWA must exist
   // --------------------------------------------------------------------------
+
+  // Stop immediately and prompt for any missing consent before destructive work.
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+
   const dbSuccess = pullDatabaseMahasiswa(); // returns true/false
   if (!dbSuccess) {
     SpreadsheetApp.getUi().alert(
@@ -76,8 +80,30 @@ function main() {
 // Prerequisite for main. Pull DATABASEMAHASISWA from source with success/failure dialogs
 // ----------------------------------------------------------------------------
 function authorizeSheetsAccess() {
-  const ss = SpreadsheetApp.openByUrl(ENV.DATABASE_URL);
-  Logger.log("Authorized access to: " + ss.getName());
+  const ui = SpreadsheetApp.getUi();
+
+  // Check first so we can give a cleaner success message when already authorized.
+  const authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
+
+  if (authInfo.getAuthorizationStatus() === ScriptApp.AuthorizationStatus.REQUIRED) {
+    // This ends the current execution and shows the consent dialog.
+    ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+    return;
+  }
+
+  // Harmless sanity touches so the menu acts as a true preflight.
+  SpreadsheetApp.getActiveSpreadsheet().getId();
+  SpreadsheetApp.openByUrl(ENV.DATABASE_URL).getName();
+  SpreadsheetApp.openByUrl(FABULASI_URL).getName();
+  ScriptApp.getProjectTriggers();
+  HtmlService.createHtmlOutput("ok");
+  DriveApp.getRootFolder().getName();
+
+  ui.alert(
+    "Authorization Complete ✅",
+    "All required access is already granted. You can now run '01. Initialize Sheet' without mid-run authorization prompts.",
+    ui.ButtonSet.OK
+  );
 }
 
 function pullDatabaseMahasiswa() {
