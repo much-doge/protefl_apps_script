@@ -62,6 +62,11 @@ function main() {
 // ----------------------------------------------------------------------------
 // Prerequisite for main. Pull DATABASEMAHASISWA from source with success/failure dialogs
 // ----------------------------------------------------------------------------
+function authorizeSheetsAccess() {
+  const ss = SpreadsheetApp.openByUrl(ENV.DATABASE_URL);
+  Logger.log("Authorized access to: " + ss.getName());
+}
+
 function pullDatabaseMahasiswa() {
   const ui = SpreadsheetApp.getUi();
   const destSS = SpreadsheetApp.getActiveSpreadsheet();
@@ -167,9 +172,10 @@ function onOpen() {
       )
       .addSeparator()
       // --- Risky options ---
+      .addItem("00. Authorize Access (Run Once)", "authorizeSheetsAccess")
+      .addItem("01. Initialize Sheet (Danger Zone)", "runMainWithConfirm")
       .addItem("Apply All Formulas (Danger Zone)", "applyAllFormulasWithConfirm")
-      .addItem("Initialize Sheet (Danger Zone)", "runMainWithConfirm")
-      .addItem("Pull DATABASEMAHASISWA (Danger Zone)", "pullDatabaseMahasiswa")
+      .addItem("Pull DATABASEMAHASISWA manually (Danger Zone)", "pullDatabaseMahasiswa")
       .addSeparator()
       // --- Custom views ---
       .addSubMenu(
