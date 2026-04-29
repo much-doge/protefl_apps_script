@@ -3173,15 +3173,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
         FILTER(
           {
             'Form responses 1'!AL2:AL,
-            IF(
-              REGEXMATCH('Form responses 1'!BI2:BI, "_BERKALA"),
-              MID('Form responses 1'!AI2:AI, 4, LEN('Form responses 1'!AI2:AI)-3),
-              IF(
-                REGEXMATCH('Form responses 1'!BI2:BI, "_OFFGRID"),
-                'Form responses 1'!D2:D,
-                'Form responses 1'!AI2:AI
-              )
-            ),
+            'Form responses 1'!BP2:BP,
             ARRAYFORMULA(SUBSTITUTE('Form responses 1'!AJ2:AJ, "'", "&#039;")),
             'Form responses 1'!BT2:BT,
             'Form responses 1'!BX2:BX,
@@ -3207,10 +3199,10 @@ function getLastDataRow_(sheet, keyCol = 3) {
               ),
               "#"
             ),
-            "^\\d{11}$"
+            "^\d{11}$"
           )
         ),
-        1, TRUE, 2, TRUE
+        1, TRUE, 7, TRUE, 2, TRUE, 5, TRUE
       )`],
   // 07. UPLOADSISTER
     ['07. UPLOADSISTER', 'A2', "ARRAY", `=SORT(
