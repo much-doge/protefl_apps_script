@@ -2740,7 +2740,17 @@ function getLastDataRow_(sheet, keyCol = 3) {
           ""
         )
       )`],
-    ['Form responses 1', 'AJ2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", IF(E2:E<>"", PROPER(E2:E), IF(J2:J<>"", PROPER(L2:L), NA())), ""))`],
+    ['Form responses 1', 'AJ2',  "ARRAY", `=ARRAYFORMULA(
+    IF(C2:C<>"",
+        IF(E2:E<>"",
+            PROPER(TRIM(E2:E)),
+            IF(J2:J<>"",
+                PROPER(TRIM(L2:L)),
+                NA()
+            )
+        ),
+        ""
+    ))`],
     ['Form responses 1', 'AK2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", AI2:AI, ""))`],
     ['Form responses 1', 'AL2',  "ARRAY", `=ARRAYFORMULA( IF( A2:A<>"", IF( V2:V="Tidak Jadi Tes", "", IFERROR( TEXT( DATEVALUE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( SUBSTITUTE( MID( IF(V2:V="Yes", W2:W, R2:R), FIND(", ", IF(V2:V="Yes", W2:W, R2:R)) + 2, FIND(" -", IF(V2:V="Yes", W2:W, R2:R)) - FIND(", ", IF(V2:V="Yes", W2:W, R2:R)) - 2 ), " Januari"," Jan" ), " Februari"," Feb" ), " Maret"," Mar" ), " April"," Apr" ), " Mei"," May" ), " Juni"," Jun" ), " Juli"," Jul" ), " Agustus"," Aug" ), " September"," Sep" ), " Oktober"," Oct" ), " November"," Nov" ), " Desember"," Dec" ) ), "YYYYMMDD" ), "" ) ), "" ) )`],
     ['Form responses 1', 'AM2',  "ARRAY", `=ARRAYFORMULA(IF(AL2:AL<>"", MID(AL2:AL,3,2) & CHOOSE(VALUE(MID(AL2:AL,5,2)), "J","F","M","A","Y","U","L","G","S","O","N","D"), ""))`],
