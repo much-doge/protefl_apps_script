@@ -2052,6 +2052,12 @@ const SHEET_INITIALIZATIONS = [
         'O1': 'itp_adjust',
         'P1': 'itp_raw'
       }
+    },
+    {
+      sheetName: 'scratch pad',
+      cells: {
+        'A1': 'Use this sheet to experiment or as an excel/sheet enabled clipboard',
+      }
     }
   ];
 
