@@ -2680,10 +2680,27 @@ function getLastDataRow_(sheet, keyCol = 3) {
   // == Form responses 1 ==
     ['Form responses 1', 'Z2',   "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", R2:R, ""))`],
     ['Form responses 1', 'AA2',  "ARRAY", `=ARRAYFORMULA(
-      IF(C2:C<>"", IFERROR(
-        TEXTJOIN(", ", TRUE, FILTER('00. MASTER-DATA'!A20:A & " " & '00. MASTER-DATA'!B20:B, '00. MASTER-DATA'!C20:C="Available")),
-        "sudah tidak tersedia, silakan reschedule ke bulan selanjutnya menunggu konfirmasi kami"
-      ), "")
+      IF(C2:C<>"",
+        IFERROR(
+          TEXTJOIN(CHAR(10), TRUE,
+            MAP(
+              UNIQUE(FILTER('00. MASTER-DATA'!A20:A, '00. MASTER-DATA'!C20:C="Available")),
+              LAMBDA(tgl,
+                "• " & tgl & ": " &
+                TEXTJOIN(", ", TRUE,
+                  FILTER(
+                    '00. MASTER-DATA'!B20:B,
+                    '00. MASTER-DATA'!A20:A=tgl,
+                    '00. MASTER-DATA'!C20:C="Available"
+                  )
+                )
+              )
+            )
+          ),
+          "sudah tidak tersedia, silakan reschedule ke bulan selanjutnya menunggu konfirmasi kami"
+        ),
+        ""
+      )
     )`],
     ['Form responses 1', 'AB2',  "ARRAY", `=ARRAYFORMULA(
       IF(
