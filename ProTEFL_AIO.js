@@ -2934,17 +2934,101 @@ function getLastDataRow_(sheet, keyCol = 3) {
     ['Form responses 1', 'CH2', "ARRAY", `=ARRAYFORMULA(ROUND(100/367 * (BX2:BX - 310)))`],
 
     // Vlookup and per-row non-array, but auto-rewrite if deleted (handled as ARRAY for bulk write):
-    ['Form responses 1', 'BU2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 8, FALSE), "")`],
-    ['Form responses 1', 'BV2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 9, FALSE), "")`],
-    ['Form responses 1', 'BW2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 10, FALSE), "")`],
-    ['Form responses 1', 'BX2', "FILLDOWN", `=IF(C2<>"",
-    IF(ISNA(VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 11, FALSE)),
-        "TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR",
-        VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 11, FALSE) + CG2
-    ),
-    ""
+    ['Form responses 1', 'BU2', "FILLDOWN", `=IF(C2="","",
+      IF(CG2="",
+        VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 8, FALSE),
+        IFERROR(
+          INDEX(
+            FILTER('10. FABULASI'!A:A, '10. FABULASI'!E:E=BX2),
+            SWITCH(
+              CK2,
+              "DEGRADING", 3,
+              "FLUCTUATING", 2,
+              "NORMAL", 2,
+              1
+            )
+          ),
+          ""
+        )
+      )
     )`],
-    ['Form responses 1', 'BY2', "FILLDOWN", `=IF(C2<>"", VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 12, FALSE), "")`],
+    ['Form responses 1', 'BV2', "FILLDOWN", `=IF(C2="","",
+      IF(CG2="",
+        VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 9, FALSE),
+        IFERROR(
+          INDEX(
+            FILTER('10. FABULASI'!B:B, '10. FABULASI'!E:E=BX2),
+            SWITCH(
+              CK2,
+              "DEGRADING", 3,
+              "FLUCTUATING", 2,
+              "NORMAL", 2,
+              1
+            )
+          ),
+          ""
+        )
+      )
+    )`],
+    ['Form responses 1', 'BW2', "FILLDOWN", `=IF(C2="","",
+      IF(CG2="",
+        VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 10, FALSE),
+        IFERROR(
+          INDEX(
+            FILTER('10. FABULASI'!C:C, '10. FABULASI'!E:E=BX2),
+            SWITCH(
+              CK2,
+              "DEGRADING", 3,
+              "FLUCTUATING", 2,
+              "NORMAL", 2,
+              1
+            )
+          ),
+          ""
+        )
+      )
+    )`],
+    ['Form responses 1', 'BX2', "FILLDOWN", `=IF($C2<>"",
+        IF(ISNA(VLOOKUP($BQ2,SINICOPYHASILSKOR!$A:$L,11,FALSE)),
+            "TIDAK DITEMUKAN, SILAKAN UPLOAD SKOR",
+            IF(OR(ISNUMBER(SEARCH("P",$CG2)),ISNUMBER(SEARCH("D",$CG2))),
+                INDEX('10. FABULASI'!$E:$E,
+                    MATCH(
+                        VLOOKUP($BQ2,SINICOPYHASILSKOR!$A:$L,11,FALSE),
+                        '10. FABULASI'!$E:$E,
+                        0
+                    )
+                    +
+                    (LEN($CG2)-LEN(SUBSTITUTE($CG2,"P","")))
+                    -
+                    (LEN($CG2)-LEN(SUBSTITUTE($CG2,"D","")))
+                ),
+                IF(ISNUMBER($CG2),
+                    VLOOKUP($BQ2,SINICOPYHASILSKOR!$A:$L,11,FALSE) + $CG2,
+                    VLOOKUP($BQ2,SINICOPYHASILSKOR!$A:$L,11,FALSE)
+                )
+            )
+        ),
+        ""
+    )`],
+    ['Form responses 1', 'BY2', "FILLDOWN", `=IF(C2="","",
+      IF(CG2="",
+        VLOOKUP(BQ2, SINICOPYHASILSKOR!A:L, 12, FALSE),
+        IFERROR(
+          INDEX(
+            FILTER('10. FABULASI'!F:F, '10. FABULASI'!E:E=BX2),
+            SWITCH(
+              CK2,
+              "DEGRADING", 3,
+              "FLUCTUATING", 2,
+              "NORMAL", 2,
+              1
+            )
+          ),
+          ""
+        )
+      )
+    )`],
     ['Form responses 1', 'BZ2', "ARRAY", `=ARRAYFORMULA(
         IF(C2:C<>"",
           IFERROR(VLOOKUP(BP2:BP, DATABASEMAHASISWA!A:E, 5, FALSE), "CEK NIM"),
@@ -2993,7 +3077,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
               "BELUM PERNAH TES",
               IF(
                 bx >= bo + 100,
-                "MUNYUK NJALUK DIANTEMI",
+                "TOLONG MASUKKAN KE BLACKLIST",
                 IF(
                   bx >= bo + 30,
                   "ANOMALI",
