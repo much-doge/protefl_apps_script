@@ -4437,18 +4437,8 @@ function mdmaSyncExternalFormResponses_() {
             statsByRegistryRow[config.registryRow].unchanged++;
 
             // Repair marker/import ID if needed, without touching target raw data.
-            updateEntries.push({
-              mode: "repairMarkerOnly",
-              sourceSheet: source,
-              sourceRowNumber,
-              markerCols,
-              targetRow,
-              sourceRawRow,
-              sourceHash,
-              stableImportId,
-              legacyImportId,
-              registryRow: config.registryRow
-            });
+            // Disabled during unchanged sync so the 5-minute trigger does not write
+            // source markers repeatedly when nothing actually changed.
             return;
           }
 
@@ -4631,9 +4621,10 @@ function mdmaSyncExternalFormResponses_() {
 
     // Refresh formula-managed/helper columns after inserted rows exist.
     // Your current project already defines applyAllFormulas().
-    if (typeof applyAllFormulas === "function") {
-      applyAllFormulas();
-    }
+    // However, applyAllFormulas() is intentionally not called here because it
+    // touches ARRAY formulas and existing formula ranges. New imports only need
+    // FILLDOWN formulas applied to the newly inserted target rows.
+    mdmaApplyFilldownFormulasForInsertedRows_(firstInsertedRow, lastInsertedRow);
 
     SpreadsheetApp.flush();
 
@@ -4979,6 +4970,91 @@ function mdmaWriteSourceMarker_(
 }
 
 
+/**
+ * Applies only FILLDOWN formulas to newly inserted rows in Form responses 1.
+ *
+ * This avoids applyAllFormulas(), which is too heavy because it loops through
+ * all formula configs, clears existing formulas, and also touches ARRAY formulas.
+ *
+ * New imports only need row-level formulas inserted into the new rows so their
+ * references match the row number.
+ */
+function mdmaApplyFilldownFormulasForInsertedRows_(firstInsertedRow, lastInsertedRow) {
+  if (!firstInsertedRow || !lastInsertedRow) {
+    Logger.log("Skipped FILLDOWN refresh: no inserted rows.");
+    return;
+  }
+
+  if (typeof FORMULAS_TO_APPLY === "undefined") {
+    Logger.log("Skipped FILLDOWN refresh: FORMULAS_TO_APPLY is not defined.");
+    return;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  FORMULAS_TO_APPLY.forEach(config => {
+    const [sheetName, cellA1, type, baseFormula, keyCol] = config;
+
+    if (sheetName !== MDMA_EXTERNAL_IMPORT.TARGET_SHEET_NAME) return;
+    if (type !== "FILLDOWN") return;
+
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return;
+
+    const anchorRange = sheet.getRange(cellA1);
+    const formulaCol = anchorRange.getColumn();
+    const anchorRow = anchorRange.getRow();
+    const startRow = Math.max(firstInsertedRow, anchorRow);
+    const endRow = lastInsertedRow;
+    const checkCol = keyCol || 3;
+
+    if (endRow < startRow) return;
+
+    const rowCount = endRow - startRow + 1;
+    const keyValues = sheet.getRange(startRow, checkCol, rowCount, 1).getValues();
+
+    const formulas = keyValues.map((row, index) => {
+      const actualRow = startRow + index;
+      const keyValue = row[0];
+
+      if (keyValue === "" || keyValue === null) {
+        return [""];
+      }
+
+      const formula = mdmaShiftFilldownFormulaToRow_(baseFormula, actualRow);
+
+      return [formula];
+    });
+
+    sheet
+      .getRange(startRow, formulaCol, rowCount, 1)
+      .setFormulas(formulas);
+  });
+}
+
+
+/**
+ * Converts row-2 references in a FILLDOWN base formula into the target row.
+ *
+ * Examples:
+ *   A2    -> A57
+ *   $A2   -> $A57
+ *   A$2   -> A57
+ *   $A$2  -> $A57
+ *
+ * This intentionally targets spreadsheet-style cell references only, not every
+ * random number 2 in the formula.
+ */
+function mdmaShiftFilldownFormulaToRow_(baseFormula, targetRow) {
+  return String(baseFormula).replace(
+    /(\$?[A-Z]{1,3})\$?2(?!\d)/g,
+    function(match, colRef) {
+      return colRef + targetRow;
+    }
+  );
+}
+
+
 // ============================================================================
 // RAW VALUE NORMALIZATION
 // ============================================================================
@@ -5034,6 +5110,12 @@ function mdmaNormalizePhone_(value) {
   // because your existing WA formulas expect the local 0 prefix.
   if (/^\+?62\d+/.test(text)) {
     text = text.replace(/^\+?62/, "0");
+  }
+
+  // If the source lost the local leading zero and starts with 8...,
+  // restore it so WA/message formulas keep working.
+  if (/^8\d+/.test(text)) {
+    text = "0" + text;
   }
 
   return text;
