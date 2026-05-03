@@ -2726,24 +2726,30 @@ function getLastDataRow_(sheet, keyCol = 3) {
         ""
       )
     )`],
-    ['Form responses 1', 'AC2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", "daring pukul 09.30 WIB (kecuali Jumat, dimulai pukul 08.30 WIB)", ""))`],
-    ['Form responses 1', 'AD2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", "luring pukul 09.00 WIB", ""))`],
+    ['Form responses 1', 'AC2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", "daring pagi 08.00 WIB; daring siang 13.30 WIB", ""))`],
+    ['Form responses 1', 'AD2',  "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", "luring pagi 09.00 WIB; luring siang 13.15 WIB", ""))`],
     ['Form responses 1', 'AE2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"",
-        "https://web.whatsapp.com/send?phone=62"&RIGHT(AT2:AT,LEN(AT2:AT)-1)&"&text="&
-        ENCODEURL(
-          "Salam, kami dari Unit Layanan Bahasa Universitas Negeri Yogyakarta."&CHAR(10)&CHAR(10)&
-          "Apakah betul dengan sdr/i. *" & AJ2:AJ & "*?"&CHAR(10)&
-          "Izin konfirmasi terkait pendaftaran tes ProTEFL yang telah dilakukan pada *" & TEXT(A2:A, "dd") & " " & CHOOSE(MONTH(A2:A),"Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember") & " " & TEXT(A2:A,"yyyy") & " pukul " & TEXT(A2:A,"HH:mm") & "*." &CHAR(10)&
-          "Kami menawarkan reschedule tes ke bulan ini."&CHAR(10)&CHAR(10)&
-          "Jadwal tes yang tersedia pada bulan *" & AB2:AB & "* adalah pada tanggal:"&CHAR(10)&
-          "*" & AA2:AA & "* dengan pilihan moda *" & AC2:AC & "* dan *" & AD2:AD & "*."&CHAR(10)&CHAR(10)&
-          "Mohon memilih salah satu jadwal yang tersedia tersebut."&CHAR(10)&
-          "Terima kasih."&CHAR(10)&
-          "Setelah memilih, mohon tunggu pesan konfirmasi dari kami untuk memastikan jadwal sudah diperbarui."&CHAR(10)&
-          "*Bila belum mendapat pesan konfirmasi, berarti jadwal belum diperbaharui oleh admin yang bertugas.*"
-        ),
-        ""
-      ))`],
+      "https://web.whatsapp.com/send?phone=62"&RIGHT(AT2:AT,LEN(AT2:AT)-1)&"&text="&
+      ENCODEURL(
+        "Salam, kami dari Unit Layanan Bahasa Universitas Negeri Yogyakarta."&CHAR(10)&CHAR(10)&
+        "Apakah betul dengan sdr/i. *" & AJ2:AJ & "*?"&CHAR(10)&
+        "Izin konfirmasi terkait pendaftaran tes ProTEFL yang telah dilakukan pada *" &
+        TEXT(A2:A,"dd") & " " &
+        CHOOSE(MONTH(A2:A),"Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember") &
+        " " & TEXT(A2:A,"yyyy") & " pukul " & TEXT(A2:A,"HH:mm") & "*." & CHAR(10)&
+        "Kami menawarkan reschedule tes ke bulan ini." & CHAR(10)&CHAR(10)&
+        "Jadwal tes yang tersedia pada bulan *" & AB2:AB & "* adalah sebagai berikut:" & CHAR(10)&
+        AA2:AA & CHAR(10)&CHAR(10)&
+        "Keterangan waktu:" & CHAR(10)&
+        "- Daring: " & AC2:AC & CHAR(10)&
+        "- Luring: " & AD2:AD & CHAR(10)&CHAR(10)&
+        "Mohon memilih salah satu jadwal yang tersedia tersebut." & CHAR(10)&
+        "Terima kasih." & CHAR(10)&
+        "Setelah memilih, mohon tunggu pesan konfirmasi dari kami untuk memastikan jadwal sudah diperbarui." & CHAR(10)&
+        "*Bila belum mendapat pesan konfirmasi, berarti jadwal belum diperbarui oleh admin yang bertugas.*"
+      ),
+      ""
+    ))`],
     // Manual: AF2, AG2, AP2, AX2, BI2, BL2: skipped
     ['Form responses 1', 'AH2', "ARRAY", `=ARRAYFORMULA(
         IF((C2:C<>"")*(AG2:AG="Confirmed"),
