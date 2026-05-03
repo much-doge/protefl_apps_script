@@ -3909,26 +3909,25 @@ function fixColumnCD() {
 // File: externalFormImport.gs
 //
 // Purpose:
-//   Safely import raw Google Form response data from Form responses 2,
-//   Form responses 3, Form responses 4, etc. into Form responses 1.
+//   Safely import and synchronize raw Google Form response data from
+//   Form responses 2, Form responses 3, Form responses 4, etc. into
+//   Form responses 1.
 //
 // Main principle:
-//   - Only raw data A:U is copied from source sheets.
-//   - BUT rows are inserted as WHOLE SHEET ROWS in Form responses 1.
-//   - This keeps processing/helper columns V onward row-aligned.
-//   - No formula spill.
-//   - No partial A:U-only insertion into existing rows.
-//   - No overwriting existing target data.
+//   - Source sheets remain the source of truth for raw form data A:U.
+//   - Form responses 1 remains the canonical processing sheet.
+//   - New source rows are inserted as WHOLE SHEET ROWS in Form responses 1.
+//   - Existing imported rows are updated in-place when source A:U changes.
+//   - Processing/helper columns V onward are never manually shifted apart from A:U.
+//   - Phone numbers in column F are preserved as text, including leading zero.
 //
-// Source registry:
-//   Controlled from 00. MASTER-DATA, starting at column E.
 //
 // Recommended workflow:
-//   1. Run "Authorize External Import Access" once.
-//   2. Run "Seed External Form Registry" once.
-//   3. Check 00. MASTER-DATA columns E:M.
-//   4. Run "Sync External Form Responses" manually.
-//   5. Install triggers.
+//   1. Replace the old externalFormImport.gs content with this version.
+//   2. Reload the spreadsheet.
+//   3. Run External Form Import > 00. Authorize External Import Access.
+//   4. Run External Form Import > 02. Sync External Form Responses.
+//   5. Keep the 5-minute trigger installed for reconciliation.
 //
 // ============================================================================
 
@@ -3946,19 +3945,24 @@ const MDMA_EXTERNAL_IMPORT = {
   // Master/orchestrator sheet.
   MASTER_SHEET_NAME: "00. MASTER-DATA",
 
-  // Raw form data width.
-  // A:U = 21 columns.
-  // These are the ONLY columns copied from source sheets.
+  // A:U = 21 raw Google Form response columns.
   RAW_START_COL: 1,
   RAW_COL_COUNT: 21,
 
-  // Registry position inside 00. MASTER-DATA.
-  // User said safe/empty area begins at E onward.
+  // Column F = WhatsApp/phone column in the raw form area.
+  // This must remain text. Otherwise 0812... becomes 812...
+  PHONE_COL: 6,
+
+  // Other raw columns that are safer as plain text.
+  // D is often NIM/NIK; F is phone/test contact.
+  TEXT_SAFE_RAW_COLS: [4, 6],
+
+  // Registry in 00. MASTER-DATA begins at E.
   REGISTRY_HEADER_ROW: 1,
   REGISTRY_START_ROW: 2,
-  REGISTRY_START_COL: 5, // E
+  REGISTRY_START_COL: 5,
 
-  // Registry columns E:M.
+  // E:M registry.
   REGISTRY_HEADERS: [
     "Include?",
     "Source sheet",
@@ -3971,24 +3975,26 @@ const MDMA_EXTERNAL_IMPORT = {
     "Imported last run"
   ],
 
-  // Marker columns appended to source sheets.
-  // These prevent double-import from Form responses 2/3/4/etc.
+  // Source-side audit/marker columns.
+  // v2 appends MDMA_LAST_SYNCED_AT while preserving old v1 headers.
   SOURCE_MARKER_HEADERS: [
     "MDMA_IMPORTED",
     "MDMA_IMPORT_ID",
     "MDMA_IMPORTED_AT",
     "MDMA_TARGET_ROW",
-    "MDMA_IMPORT_HASH"
+    "MDMA_IMPORT_HASH",
+    "MDMA_LAST_SYNCED_AT"
   ],
 
-  // Hidden metadata columns appended to Form responses 1.
-  // These give a target-side audit trail and duplicate guard.
+  // Target-side hidden metadata columns.
+  // v2 appends MDMA_LAST_SOURCE_SYNC_AT while preserving old v1 headers.
   TARGET_META_HEADERS: [
     "MDMA_SOURCE_SHEET",
     "MDMA_SOURCE_ROW",
     "MDMA_IMPORT_ID",
     "MDMA_IMPORTED_AT",
-    "MDMA_IMPORT_HASH"
+    "MDMA_IMPORT_HASH",
+    "MDMA_LAST_SOURCE_SYNC_AT"
   ]
 };
 
@@ -4028,7 +4034,7 @@ function mdmaAuthorizeExternalImportAccess() {
 
   ui.alert(
     "Authorization Complete ✅",
-    "External form import permissions are ready.",
+    "External form import and source-sync permissions are ready.",
     ui.ButtonSet.OK
   );
 }
@@ -4041,7 +4047,9 @@ function mdmaAuthorizeExternalImportAccess() {
 /**
  * Manual sync button.
  *
- * This is the safest operational button to run before scheduling/checking groups.
+ * This now does BOTH:
+ *   1. Append new source rows.
+ *   2. Update existing imported rows if source A:U changed.
  */
 function mdmaSyncExternalFormResponsesWithUi() {
   const ui = SpreadsheetApp.getUi();
@@ -4053,6 +4061,8 @@ function mdmaSyncExternalFormResponsesWithUi() {
       "External Form Sync Complete ✅",
       [
         `Imported rows: ${result.imported}`,
+        `Updated rows: ${result.updated}`,
+        `Unchanged rows checked: ${result.unchanged}`,
         "",
         ...result.messages
       ].join("\n"),
@@ -4132,7 +4142,7 @@ function mdmaSeedExternalFormRegistry() {
 
 
 /**
- * Installs two backup mechanisms:
+ * Installs importer triggers.
  *
  * 1. onFormSubmit trigger:
  *    Runs when any linked form submits into this spreadsheet.
@@ -4237,15 +4247,18 @@ function mdmaSyncExternalFormResponsesTrigger_() {
 // ============================================================================
 
 /**
- * Core import function.
+ * Core sync function.
  *
- * Guarantees:
- *   - Imports only A:U from registered source sheets.
- *   - Inserts whole rows in Form responses 1.
- *   - Never writes source A:U into old/existing rows.
- *   - Marks source rows after import.
- *   - Adds hidden target-side audit metadata.
- *   - Uses a document lock to avoid concurrent imports.
+ * Behavior:
+ *   - For each registered source row:
+ *       a. If never imported, append it into Form responses 1.
+ *       b. If already imported and source A:U changed, update target A:U.
+ *       c. If unchanged, do nothing.
+ *
+ * Important:
+ *   - Appends use whole-row insertion.
+ *   - Updates only touch A:U of the known target row.
+ *   - Before writing, A:U target cells are formatted as text-safe where needed.
  */
 function mdmaSyncExternalFormResponses_() {
   const lock = LockService.getDocumentLock();
@@ -4263,6 +4276,7 @@ function mdmaSyncExternalFormResponses_() {
     }
 
     const master = mdmaEnsureImportRegistry_();
+    const now = new Date();
 
     // Make sure target has enough columns and metadata columns.
     mdmaEnsureMinColumns_(target, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT);
@@ -4274,16 +4288,14 @@ function mdmaSyncExternalFormResponses_() {
       true
     );
 
-    const existingTargetImportIds = mdmaReadExistingTargetImportIds_(
-      target,
-      targetMetaCols["MDMA_IMPORT_ID"]
-    );
-
+    const targetIndexes = mdmaBuildTargetIndexes_(target, targetMetaCols);
     const configs = mdmaReadImportConfigs_();
 
     if (configs.length === 0) {
       return {
         imported: 0,
+        updated: 0,
+        unchanged: 0,
         messages: [
           "No registered source sheets found.",
           "Run Seed External Form Registry first, then check 00. MASTER-DATA columns E:M."
@@ -4291,14 +4303,20 @@ function mdmaSyncExternalFormResponses_() {
       };
     }
 
-    const entries = [];
+    const appendEntries = [];
+    const updateEntries = [];
     const messages = [];
-    const importedByRegistryRow = {};
+    const statsByRegistryRow = {};
+    let unchanged = 0;
 
     configs.forEach(config => {
-      if (!config.include) {
-        return;
-      }
+      if (!config.include) return;
+
+      statsByRegistryRow[config.registryRow] = {
+        imported: 0,
+        updated: 0,
+        unchanged: 0
+      };
 
       if (config.sourceSheetName === MDMA_EXTERNAL_IMPORT.TARGET_SHEET_NAME) {
         messages.push(`Skipped ${config.sourceSheetName}: target sheet cannot be a source.`);
@@ -4315,14 +4333,6 @@ function mdmaSyncExternalFormResponses_() {
       }
 
       mdmaEnsureMinColumns_(source, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT);
-
-      const rawColCount = config.rawEndCol || MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT;
-
-      if (rawColCount !== MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT) {
-        messages.push(
-          `${config.sourceSheetName}: Raw end col is ${rawColCount}, but importer expects A:U / 21 columns. Using A:U.`
-        );
-      }
 
       const sourceLastRow = mdmaGetLastDataRowByColumns_(
         source,
@@ -4345,6 +4355,9 @@ function mdmaSyncExternalFormResponses_() {
 
       const numRows = sourceLastRow - config.dataStartRow + 1;
 
+      // Read both raw values and display values.
+      // Values preserve Dates where useful.
+      // Display values preserve phone leading zero and exact text shown by the sheet.
       const sourceValues = source
         .getRange(
           config.dataStartRow,
@@ -4354,163 +4367,247 @@ function mdmaSyncExternalFormResponses_() {
         )
         .getValues();
 
-      const importedFlags = source
-        .getRange(config.dataStartRow, markerCols["MDMA_IMPORTED"], numRows, 1)
+      const sourceDisplayValues = source
+        .getRange(
+          config.dataStartRow,
+          MDMA_EXTERNAL_IMPORT.RAW_START_COL,
+          numRows,
+          MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
+        )
+        .getDisplayValues();
+
+      const markerValues = source
+        .getRange(
+          config.dataStartRow,
+          markerCols["MDMA_IMPORTED"],
+          numRows,
+          MDMA_EXTERNAL_IMPORT.SOURCE_MARKER_HEADERS.length
+        )
         .getValues();
 
-      const sourceImportIds = source
-        .getRange(config.dataStartRow, markerCols["MDMA_IMPORT_ID"], numRows, 1)
-        .getValues();
-
-      sourceValues.forEach((row, index) => {
+      sourceValues.forEach((valueRow, index) => {
+        const displayRow = sourceDisplayValues[index];
         const sourceRowNumber = config.dataStartRow + index;
 
-        // Skip totally blank rows.
-        if (!mdmaRowHasData_(row)) {
+        const sourceRawRow = mdmaNormalizeRawRowForWrite_(valueRow, displayRow);
+
+        if (!mdmaRowHasData_(sourceRawRow)) {
           return;
         }
 
-        const alreadyMarked = mdmaTruthy_(importedFlags[index][0]);
-        const existingSourceImportId = String(sourceImportIds[index][0] || "").trim();
+        const sourceHash = mdmaHashRow_(sourceRawRow);
 
-        const importHash = mdmaHashRow_(row);
+        const marker = mdmaReadMarkerRow_(markerValues[index], markerCols);
+        const stableImportId = mdmaStableImportId_(ss, source, sourceRowNumber);
+        const legacyImportId = marker.importId || "";
 
-        // Stable unique ID for this source row.
-        // Includes spreadsheet id, source sheet id, source row number, and hash.
-        const importId =
-          existingSourceImportId ||
-          [
-            ss.getId(),
-            source.getSheetId(),
+        const targetRow = mdmaResolveTargetRow_(
+          target,
+          targetIndexes,
+          config.sourceSheetName,
+          sourceRowNumber,
+          stableImportId,
+          legacyImportId,
+          marker.targetRow
+        );
+
+        if (targetRow) {
+          const oldHash = marker.importHash || mdmaGetTargetHash_(target, targetMetaCols, targetRow);
+
+          if (oldHash === sourceHash) {
+            unchanged++;
+            statsByRegistryRow[config.registryRow].unchanged++;
+
+            // Repair marker/import ID if needed, without touching target raw data.
+            updateEntries.push({
+              mode: "repairMarkerOnly",
+              sourceSheet: source,
+              sourceRowNumber,
+              markerCols,
+              targetRow,
+              sourceRawRow,
+              sourceHash,
+              stableImportId,
+              legacyImportId,
+              registryRow: config.registryRow
+            });
+            return;
+          }
+
+          updateEntries.push({
+            mode: "updateTarget",
+            sourceSheetName: config.sourceSheetName,
+            sourceSheet: source,
             sourceRowNumber,
-            importHash
-          ].join("::");
+            markerCols,
+            targetRow,
+            sourceRawRow,
+            sourceHash,
+            stableImportId,
+            legacyImportId,
+            registryRow: config.registryRow
+          });
 
-        // Prevent duplicates from both sides:
-        // 1. Source-side marker says already imported.
-        // 2. Target-side audit log already contains this import ID.
-        if (alreadyMarked) {
+          statsByRegistryRow[config.registryRow].updated++;
           return;
         }
 
-        if (existingTargetImportIds.has(importId)) {
-          return;
-        }
-
-        entries.push({
+        appendEntries.push({
           sourceSheetName: config.sourceSheetName,
           sourceSheet: source,
           sourceRowNumber,
-          rawValues: mdmaPadOrTrimRow_(row, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT),
           markerCols,
-          importId,
-          importHash,
+          sourceRawRow,
+          sourceHash,
+          stableImportId,
+          legacyImportId,
           registryRow: config.registryRow
         });
 
-        importedByRegistryRow[config.registryRow] =
-          (importedByRegistryRow[config.registryRow] || 0) + 1;
+        statsByRegistryRow[config.registryRow].imported++;
       });
     });
 
-    if (entries.length === 0) {
-      configs.forEach(config => {
-        if (config.include) {
-          mdmaWriteRegistryStatus_(master, config.registryRow, "Synced: no new rows", 0, "");
-        }
-      });
+    // ------------------------------------------------------------------------
+    // APPLY UPDATES FIRST
+    // ------------------------------------------------------------------------
+    let updated = 0;
 
-      return {
-        imported: 0,
-        messages: messages.length ? messages : ["No new rows found."]
-      };
-    }
-
-    // Find the last actual raw-data row in Form responses 1 based only on A:U.
-    // This protects against formulas/helper columns far to the right making
-    // getLastRow() unreliable for appending raw participant data.
-    const lastTargetRawRow = Math.max(
-      1,
-      mdmaGetLastDataRowByColumns_(
-        target,
-        MDMA_EXTERNAL_IMPORT.RAW_START_COL,
-        MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
-      )
-    );
-
-    // CRITICAL SAFETY STEP:
-    // Insert whole spreadsheet rows.
-    // This shifts A:U and V onward together, preserving row alignment.
-    target.insertRowsAfter(lastTargetRawRow, entries.length);
-
-    const firstInsertedRow = lastTargetRawRow + 1;
-    const now = new Date();
-
-    // Only fill A:U in the newly inserted rows.
-    // We are not writing to old rows.
-    target
-      .getRange(
-        firstInsertedRow,
-        MDMA_EXTERNAL_IMPORT.RAW_START_COL,
-        entries.length,
-        MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
-      )
-      .setValues(entries.map(entry => entry.rawValues));
-
-    // Write hidden target-side audit metadata.
-    target
-      .getRange(
-        firstInsertedRow,
-        targetMetaCols["MDMA_SOURCE_SHEET"],
-        entries.length,
-        MDMA_EXTERNAL_IMPORT.TARGET_META_HEADERS.length
-      )
-      .setValues(
-        entries.map(entry => [
-          entry.sourceSheetName,
+    updateEntries.forEach(entry => {
+      if (entry.mode === "repairMarkerOnly") {
+        mdmaWriteSourceMarker_(
+          entry.sourceSheet,
           entry.sourceRowNumber,
-          entry.importId,
+          entry.markerCols,
+          true,
+          entry.stableImportId,
           now,
-          entry.importHash
-        ])
+          entry.targetRow,
+          entry.sourceHash
+        );
+        return;
+      }
+
+      // Preserve phone/NIM text format before writing.
+      mdmaPrepareRawTargetRowForWrite_(target, entry.targetRow, 1);
+
+      target
+        .getRange(
+          entry.targetRow,
+          MDMA_EXTERNAL_IMPORT.RAW_START_COL,
+          1,
+          MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
+        )
+        .setValues([entry.sourceRawRow]);
+
+      mdmaWriteTargetMeta_(
+        target,
+        targetMetaCols,
+        entry.targetRow,
+        entry.sourceSheetName,
+        entry.sourceRowNumber,
+        entry.stableImportId,
+        now,
+        entry.sourceHash
       );
 
-    // Mark source rows AFTER target rows are successfully written.
-    entries.forEach((entry, index) => {
-      const targetRow = firstInsertedRow + index;
+      mdmaWriteSourceMarker_(
+        entry.sourceSheet,
+        entry.sourceRowNumber,
+        entry.markerCols,
+        true,
+        entry.stableImportId,
+        now,
+        entry.targetRow,
+        entry.sourceHash
+      );
 
-      entry.sourceSheet
-        .getRange(entry.sourceRowNumber, entry.markerCols["MDMA_IMPORTED"])
-        .setValue(true);
-
-      entry.sourceSheet
-        .getRange(entry.sourceRowNumber, entry.markerCols["MDMA_IMPORT_ID"])
-        .setValue(entry.importId);
-
-      entry.sourceSheet
-        .getRange(entry.sourceRowNumber, entry.markerCols["MDMA_IMPORTED_AT"])
-        .setValue(now);
-
-      entry.sourceSheet
-        .getRange(entry.sourceRowNumber, entry.markerCols["MDMA_TARGET_ROW"])
-        .setValue(targetRow);
-
-      entry.sourceSheet
-        .getRange(entry.sourceRowNumber, entry.markerCols["MDMA_IMPORT_HASH"])
-        .setValue(entry.importHash);
+      updated++;
     });
 
-    // Update registry status in 00. MASTER-DATA.
-    Object.keys(importedByRegistryRow).forEach(registryRowText => {
+    // ------------------------------------------------------------------------
+    // APPLY APPENDS WITH WHOLE-ROW INSERTION
+    // ------------------------------------------------------------------------
+    let imported = 0;
+    let firstInsertedRow = null;
+    let lastInsertedRow = null;
+
+    if (appendEntries.length > 0) {
+      const lastTargetRawRow = Math.max(
+        1,
+        mdmaGetLastDataRowByColumns_(
+          target,
+          MDMA_EXTERNAL_IMPORT.RAW_START_COL,
+          MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
+        )
+      );
+
+      // CRITICAL: insert whole spreadsheet rows.
+      target.insertRowsAfter(lastTargetRawRow, appendEntries.length);
+
+      firstInsertedRow = lastTargetRawRow + 1;
+      lastInsertedRow = firstInsertedRow + appendEntries.length - 1;
+
+      mdmaPrepareRawTargetRowForWrite_(target, firstInsertedRow, appendEntries.length);
+
+      target
+        .getRange(
+          firstInsertedRow,
+          MDMA_EXTERNAL_IMPORT.RAW_START_COL,
+          appendEntries.length,
+          MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
+        )
+        .setValues(appendEntries.map(entry => entry.sourceRawRow));
+
+      target
+        .getRange(
+          firstInsertedRow,
+          targetMetaCols["MDMA_SOURCE_SHEET"],
+          appendEntries.length,
+          MDMA_EXTERNAL_IMPORT.TARGET_META_HEADERS.length
+        )
+        .setValues(
+          appendEntries.map((entry, index) => [
+            entry.sourceSheetName,
+            entry.sourceRowNumber,
+            entry.stableImportId,
+            now,
+            entry.sourceHash,
+            now
+          ])
+        );
+
+      appendEntries.forEach((entry, index) => {
+        const targetRow = firstInsertedRow + index;
+
+        mdmaWriteSourceMarker_(
+          entry.sourceSheet,
+          entry.sourceRowNumber,
+          entry.markerCols,
+          true,
+          entry.stableImportId,
+          now,
+          targetRow,
+          entry.sourceHash
+        );
+      });
+
+      imported = appendEntries.length;
+    }
+
+    // ------------------------------------------------------------------------
+    // UPDATE REGISTRY STATUS
+    // ------------------------------------------------------------------------
+    Object.entries(statsByRegistryRow).forEach(([registryRowText, stat]) => {
       const registryRow = Number(registryRowText);
-      const count = importedByRegistryRow[registryRow];
+      const totalTouched = stat.imported + stat.updated;
 
       mdmaWriteRegistryStatus_(
         master,
         registryRow,
-        `Synced: imported ${count}`,
-        count,
-        firstInsertedRow + entries.length - 1
+        `Synced: +${stat.imported}, updated ${stat.updated}, unchanged ${stat.unchanged}`,
+        totalTouched,
+        lastInsertedRow || ""
       );
     });
 
@@ -4522,20 +4619,33 @@ function mdmaSyncExternalFormResponses_() {
 
     SpreadsheetApp.flush();
 
-    const bySource = {};
-    entries.forEach(entry => {
-      bySource[entry.sourceSheetName] = (bySource[entry.sourceSheetName] || 0) + 1;
+    const importedBySource = mdmaCountBy_(appendEntries, "sourceSheetName");
+    const updatedBySource = mdmaCountBy_(
+      updateEntries.filter(entry => entry.mode === "updateTarget"),
+      "sourceSheetName"
+    );
+
+    Object.entries(importedBySource).forEach(([sourceName, count]) => {
+      messages.push(`${sourceName}: imported ${count} new row(s).`);
     });
 
+    Object.entries(updatedBySource).forEach(([sourceName, count]) => {
+      messages.push(`${sourceName}: updated ${count} existing target row(s).`);
+    });
+
+    if (firstInsertedRow && lastInsertedRow) {
+      messages.push(`Inserted target rows: ${firstInsertedRow}–${lastInsertedRow}`);
+    }
+
+    if (messages.length === 0) {
+      messages.push("No new or changed source rows found.");
+    }
+
     return {
-      imported: entries.length,
-      messages: [
-        ...messages,
-        ...Object.entries(bySource).map(([sourceName, count]) => {
-          return `${sourceName}: imported ${count} row(s).`;
-        }),
-        `Inserted target rows: ${firstInsertedRow}–${firstInsertedRow + entries.length - 1}`
-      ]
+      imported,
+      updated,
+      unchanged,
+      messages
     };
 
   } finally {
@@ -4651,12 +4761,271 @@ function mdmaWriteRegistryStatus_(master, registryRow, status, importedCount, la
 
 
 // ============================================================================
-// SHEET / COLUMN HELPERS
+// SYNC INDEX / RESOLUTION HELPERS
 // ============================================================================
 
 /**
- * Ensures a sheet has at least minCols columns.
+ * Builds lookup maps from target metadata.
  */
+function mdmaBuildTargetIndexes_(target, targetMetaCols) {
+  const lastRow = Math.max(target.getLastRow(), 2);
+  const numRows = lastRow - 1;
+
+  const indexes = {
+    byImportId: new Map(),
+    bySourceKey: new Map(),
+    byTargetRow: new Set()
+  };
+
+  if (numRows <= 0) return indexes;
+
+  const startCol = targetMetaCols["MDMA_SOURCE_SHEET"];
+  const metaValues = target
+    .getRange(2, startCol, numRows, MDMA_EXTERNAL_IMPORT.TARGET_META_HEADERS.length)
+    .getValues();
+
+  metaValues.forEach((row, i) => {
+    const targetRow = i + 2;
+    const sourceSheetName = String(row[0] || "").trim();
+    const sourceRow = String(row[1] || "").trim();
+    const importId = String(row[2] || "").trim();
+
+    if (importId) {
+      indexes.byImportId.set(importId, targetRow);
+    }
+
+    if (sourceSheetName && sourceRow) {
+      indexes.bySourceKey.set(`${sourceSheetName}::${sourceRow}`, targetRow);
+    }
+
+    indexes.byTargetRow.add(targetRow);
+  });
+
+  return indexes;
+}
+
+
+/**
+ * Resolves where a source row lives in Form responses 1.
+ *
+ * Lookup order:
+ *   1. Source marker MDMA_TARGET_ROW.
+ *   2. Target metadata by source sheet + source row.
+ *   3. Target metadata by stable v2 import ID.
+ *   4. Target metadata by legacy v1 import ID.
+ */
+function mdmaResolveTargetRow_(
+  target,
+  targetIndexes,
+  sourceSheetName,
+  sourceRowNumber,
+  stableImportId,
+  legacyImportId,
+  markerTargetRow
+) {
+  const markerRow = Number(markerTargetRow || 0);
+
+  if (markerRow >= 2 && markerRow <= target.getMaxRows()) {
+    return markerRow;
+  }
+
+  const sourceKey = `${sourceSheetName}::${sourceRowNumber}`;
+
+  if (targetIndexes.bySourceKey.has(sourceKey)) {
+    return targetIndexes.bySourceKey.get(sourceKey);
+  }
+
+  if (targetIndexes.byImportId.has(stableImportId)) {
+    return targetIndexes.byImportId.get(stableImportId);
+  }
+
+  if (legacyImportId && targetIndexes.byImportId.has(legacyImportId)) {
+    return targetIndexes.byImportId.get(legacyImportId);
+  }
+
+  return null;
+}
+
+
+function mdmaStableImportId_(ss, sourceSheet, sourceRowNumber) {
+  return [
+    ss.getId(),
+    sourceSheet.getSheetId(),
+    sourceRowNumber
+  ].join("::");
+}
+
+
+function mdmaReadMarkerRow_(markerRowValues, markerCols) {
+  const headers = MDMA_EXTERNAL_IMPORT.SOURCE_MARKER_HEADERS;
+  const out = {};
+
+  headers.forEach((header, index) => {
+    out[header] = markerRowValues[index];
+  });
+
+  return {
+    imported: mdmaTruthy_(out["MDMA_IMPORTED"]),
+    importId: String(out["MDMA_IMPORT_ID"] || "").trim(),
+    importedAt: out["MDMA_IMPORTED_AT"],
+    targetRow: out["MDMA_TARGET_ROW"],
+    importHash: String(out["MDMA_IMPORT_HASH"] || "").trim(),
+    lastSyncedAt: out["MDMA_LAST_SYNCED_AT"]
+  };
+}
+
+
+function mdmaGetTargetHash_(target, targetMetaCols, targetRow) {
+  const col = targetMetaCols["MDMA_IMPORT_HASH"];
+  if (!col) return "";
+
+  return String(target.getRange(targetRow, col).getValue() || "").trim();
+}
+
+
+// ============================================================================
+// WRITE HELPERS
+// ============================================================================
+
+/**
+ * Applies text format to sensitive raw columns before writing.
+ *
+ * This fixes the phone-number issue:
+ *   0812345678 should remain 0812345678,
+ *   not become 812345678.
+ */
+function mdmaPrepareRawTargetRowForWrite_(target, startRow, numRows) {
+  MDMA_EXTERNAL_IMPORT.TEXT_SAFE_RAW_COLS.forEach(col => {
+    target
+      .getRange(startRow, col, numRows, 1)
+      .setNumberFormat("@");
+  });
+}
+
+
+function mdmaWriteTargetMeta_(
+  target,
+  targetMetaCols,
+  targetRow,
+  sourceSheetName,
+  sourceRowNumber,
+  importId,
+  now,
+  sourceHash
+) {
+  target
+    .getRange(
+      targetRow,
+      targetMetaCols["MDMA_SOURCE_SHEET"],
+      1,
+      MDMA_EXTERNAL_IMPORT.TARGET_META_HEADERS.length
+    )
+    .setValues([[
+      sourceSheetName,
+      sourceRowNumber,
+      importId,
+      now,
+      sourceHash,
+      now
+    ]]);
+}
+
+
+function mdmaWriteSourceMarker_(
+  sourceSheet,
+  sourceRowNumber,
+  markerCols,
+  imported,
+  importId,
+  now,
+  targetRow,
+  sourceHash
+) {
+  const startCol = markerCols["MDMA_IMPORTED"];
+
+  sourceSheet
+    .getRange(
+      sourceRowNumber,
+      startCol,
+      1,
+      MDMA_EXTERNAL_IMPORT.SOURCE_MARKER_HEADERS.length
+    )
+    .setValues([[
+      imported,
+      importId,
+      now,
+      targetRow,
+      sourceHash,
+      now
+    ]]);
+}
+
+
+// ============================================================================
+// RAW VALUE NORMALIZATION
+// ============================================================================
+
+/**
+ * Builds the row that will be written into Form responses 1 A:U.
+ *
+ * Most columns use getValues(), so Dates remain Dates.
+ * Text-sensitive columns use getDisplayValues(), so phone/NIM formatting is
+ * preserved exactly as visible in the source sheet.
+ */
+function mdmaNormalizeRawRowForWrite_(valueRow, displayRow) {
+  const output = mdmaPadOrTrimRow_(valueRow, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT);
+
+  MDMA_EXTERNAL_IMPORT.TEXT_SAFE_RAW_COLS.forEach(colNumber => {
+    const index = colNumber - 1;
+    output[index] = mdmaNormalizeTextCell_(displayRow[index]);
+  });
+
+  // Extra hardening for phone column F.
+  const phoneIndex = MDMA_EXTERNAL_IMPORT.PHONE_COL - 1;
+  output[phoneIndex] = mdmaNormalizePhone_(displayRow[phoneIndex]);
+
+  return output;
+}
+
+
+/**
+ * Removes only the display apostrophe if it is visible in the source display.
+ *
+ * In Google Sheets, an apostrophe used to force text is usually not returned by
+ * getDisplayValues(). If it is visible for some reason, this removes it while
+ * preserving the leading 0.
+ */
+function mdmaNormalizeTextCell_(value) {
+  let text = String(value || "");
+
+  if (text.startsWith("'")) {
+    text = text.slice(1);
+  }
+
+  return text.trim();
+}
+
+
+function mdmaNormalizePhone_(value) {
+  let text = mdmaNormalizeTextCell_(value);
+
+  // Remove spaces and common separators without destroying the leading zero.
+  text = text.replace(/[\s\-().]/g, "");
+
+  // If a form/user stored Indonesian number as +628..., convert to 08...
+  // because your existing WA formulas expect the local 0 prefix.
+  if (/^\+?62\d+/.test(text)) {
+    text = text.replace(/^\+?62/, "0");
+  }
+
+  return text;
+}
+
+
+// ============================================================================
+// GENERAL HELPERS
+// ============================================================================
+
 function mdmaEnsureMinColumns_(sheet, minCols) {
   const current = sheet.getMaxColumns();
 
@@ -4666,15 +5035,6 @@ function mdmaEnsureMinColumns_(sheet, minCols) {
 }
 
 
-/**
- * Ensures a list of headers exists somewhere in the header row.
- *
- * For source sheets:
- *   - Adds marker columns at far right.
- *
- * For target sheet:
- *   - Adds metadata columns at far right and hides them.
- */
 function mdmaEnsureHeaderColumns_(sheet, headerRow, headers, hideColumns) {
   const result = {};
 
@@ -4739,31 +5099,6 @@ function mdmaGetLastDataRowByColumns_(sheet, startCol, numCols) {
 }
 
 
-/**
- * Reads all existing import IDs already written to Form responses 1.
- *
- * This prevents duplicate imports if source-side marker was not written
- * but the target-side write already happened.
- */
-function mdmaReadExistingTargetImportIds_(target, importIdCol) {
-  const lastRow = Math.max(target.getLastRow(), 2);
-
-  const values = target
-    .getRange(2, importIdCol, lastRow - 1, 1)
-    .getValues();
-
-  return new Set(
-    values
-      .flat()
-      .map(value => String(value || "").trim())
-      .filter(Boolean)
-  );
-}
-
-
-/**
- * Pads or trims a row to the target width.
- */
 function mdmaPadOrTrimRow_(row, width) {
   const output = row.slice(0, width);
 
@@ -4866,4 +5201,13 @@ function mdmaHashRow_(row) {
       return ("0" + value.toString(16)).slice(-2);
     })
     .join("");
+}
+
+
+function mdmaCountBy_(items, key) {
+  return items.reduce((acc, item) => {
+    const value = item[key] || "Unknown";
+    acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
 }
