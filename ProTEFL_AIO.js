@@ -2839,13 +2839,13 @@ function getLastDataRow_(sheet, keyCol = 3) {
         "",
         LET(
           raw, IF(F2:F<>"", F2:F, IF(J2:J<>"", O2:O, NA())),
-          clean, REGEXREPLACE(TO_TEXT(raw),"[\s\-\(\)\.]",""),
+          clean, REGEXREPLACE(TO_TEXT(raw),"[\\s\\-\\(\\)\\.]",""),
           IF(
             REGEXMATCH(clean,"^8"),
             "0"&clean,
             IF(
-              REGEXMATCH(clean,"^\+?62"),
-              REGEXREPLACE(clean,"^\+?62","0"),
+              REGEXMATCH(clean,"^\\+?62"),
+              REGEXREPLACE(clean,"^\\+?62","0"),
               clean
             )
           )
@@ -3344,7 +3344,7 @@ function getLastDataRow_(sheet, keyCol = 3) {
               ),
               "#"
             ),
-            "^\d{11}$"
+            "^\\d{11}$"
           )
         ),
         1, TRUE, 7, TRUE, 2, TRUE, 5, TRUE
