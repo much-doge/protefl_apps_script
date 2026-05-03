@@ -2833,7 +2833,25 @@ function getLastDataRow_(sheet, keyCol = 3) {
         )`
     ],
     ['Form responses 1', 'AS2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", AJ2:AJ, ""))`],
-    ['Form responses 1', 'AT2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", IF(F2:F<>"", F2:F, IF(J2:J<>"", O2:O, NA())), ""))`],
+    ['Form responses 1', 'AT2', "ARRAY", `=ARRAYFORMULA(
+      IF(
+        C2:C="",
+        "",
+        LET(
+          raw, IF(F2:F<>"", F2:F, IF(J2:J<>"", O2:O, NA())),
+          clean, REGEXREPLACE(TO_TEXT(raw),"[\s\-\(\)\.]",""),
+          IF(
+            REGEXMATCH(clean,"^8"),
+            "0"&clean,
+            IF(
+              REGEXMATCH(clean,"^\+?62"),
+              REGEXREPLACE(clean,"^\+?62","0"),
+              clean
+            )
+          )
+        )
+      )
+    )`],
     ['Form responses 1', 'AU2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", IF(H2:H<>"", H2:H, IF(J2:J<>"", P2:P, NA())), ""))`],
     ['Form responses 1', 'AV2', "ARRAY", `=ARRAYFORMULA( IF( C2:C<>"", IF( AL2:AL="", "CANCELED", IF( ISNUMBER(VALUE(AL2:AL)), IF( ISNUMBER(SEARCH("S_", AQ2:AQ)), "75.000,00", IF( ISNUMBER(SEARCH("T_", AQ2:AQ)), "250.000,00", "ERROR" ) ), "ERROR" ) ), "" ) )`],
     ['Form responses 1', 'AW2', "ARRAY", `=ARRAYFORMULA(IF(C2:C<>"", I2:I, ""))`],
