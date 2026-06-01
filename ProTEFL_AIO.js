@@ -438,13 +438,13 @@ function resetView() {
 
 /** Show lean "Default" view (basic registration essentials) */
 function toggleDefaultView(forceOn) {
-  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX", "CI", "CK"];
+  var keepCols = ["A","AI","AJ","AN","AO","BB","BC","BJ","BT","BX", "CI", "CK", "CO"];
   applyCustomView_("Form responses 1", keepCols, showDefaultSidebar, "Default", forceOn);
 }
 
 /** Focus on rescheduling participants (schedule + comms columns) */
 function toggleRescheduleParticipantsView() {
-  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","AV","AX","BI", "BJ", "CI"];
+  var keepCols = ["A","C","D","E","G","R","V","W","X","Y","AE","AF","AG","AH","AL","AM","AN","AO","AV","AX","BI", "BJ", "CI", "CO"];
   applyCustomView_("Form responses 1", keepCols, showRescheduleSidebar, "Reschedule Participants");
 }
 
@@ -456,7 +456,7 @@ function toggleVerifyStudentIDView() {
 
 /** Verify payments (proof columns + payment status) */
 function toggleVerifyPaymentView() {
-  var keepCols = ["A", "C", "D", "G", "AI", "AN", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ", "CI"];
+  var keepCols = ["A", "C", "D", "G", "AI", "AN", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "BI", "BJ", "CI", "CO"];
   applyCustomView_("Form responses 1", keepCols, showVerifyPaymentSidebar, "Verify Payment");
 }
 
@@ -470,7 +470,7 @@ function togglePPBView() {
     "BB","BC",
     "BI","BJ",
     "BO","BS","BT","BU","BV","BW","BX",
-    "BZ","CB","CD","CF","CG","CI","CJ"
+    "BZ","CB","CD","CF","CG","CI","CJ", "CO"
   ];
   applyCustomView_("Form responses 1", keepCols, showPPBSidebar, "PPB");
 }
@@ -480,14 +480,14 @@ function toggleVerifyAttendanceView() {
   var keepCols = [
     "A","C","D","G","V","W","AI","AJ","AL","AN","AO", "AX", "BB",
     "BC","BI","BJ","BL","BN","BO","BP","BQ","BS","BT",
-    "BU","BV","BW","BX","CB","CG", "CI", "CJ", "CK", "CL", "CM", "CN"
+    "BU","BV","BW","BX","CB","CG", "CI", "CJ", "CK", "CL", "CM", "CN", "CO"
   ];
   applyCustomView_("Form responses 1", keepCols, showVerifyAttendanceSidebar, "Verify Attendance");
 }
 
 /** Group participants & manage contacts (IDs + contact columns) */
 function toggleGroupingContactsView() {
-  const keepCols = ["A", "F", "G", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI"];
+  const keepCols = ["A", "F", "G", "AI", "AJ", "AL", "AM", "AN", "AO", "AP", "AQ", "BE", "BG", "BI", "BJ", "CI", "CO"];
   applyCustomView_("Form responses 1", keepCols, showGroupingContactsSidebar, "Grouping & Contacts");
 }
 
