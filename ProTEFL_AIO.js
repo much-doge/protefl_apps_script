@@ -3228,21 +3228,26 @@ function getLastDataRow_(sheet, keyCol = 3) {
     `],
     ['01. STATISTIK', 'D2', "ARRAY",
       `=IFERROR(
-          SORT(
-            FILTER(
-              {
-                TEXT('Form responses 1'!A:A, "dd/mm/yyyy hh:mm:ss"),
-                'Form responses 1'!AI:AI,
-                'Form responses 1'!AJ:AJ,
-                'Form responses 1'!AL:AL,
-                'Form responses 1'!V:V,
-                'Form responses 1'!W:W,
-                'Form responses 1'!BX:BX
-              },
-              COUNTIF('Form responses 1'!AI:AI, 'Form responses 1'!AI:AI) > 1
+          CHOOSECOLS(
+            SORT(
+              FILTER(
+                {
+                  TEXT('Form responses 1'!A:A, "dd/mm/yyyy hh:mm:ss"),
+                  'Form responses 1'!AI:AI,
+                  'Form responses 1'!AJ:AJ,
+                  'Form responses 1'!AL:AL,
+                  'Form responses 1'!V:V,
+                  'Form responses 1'!W:W,
+                  'Form responses 1'!BX:BX,
+                  --('Form responses 1'!V:V="Tidak Jadi Tes")
+                },
+                COUNTIF('Form responses 1'!AI:AI, 'Form responses 1'!AI:AI) > 1
+              ),
+              8, TRUE,
+              2, TRUE,
+              3, TRUE
             ),
-            2, TRUE,
-            3, TRUE
+            1,2,3,4,5,6,7
           ),
           "TIDAK ADA DUPLIKASI PADA KOLOM AI"
         )`
