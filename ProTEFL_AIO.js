@@ -3946,13 +3946,6 @@ function fixColumnCD() {
 //   - Phone numbers in column F are preserved as text, including leading zero.
 //
 //
-// Recommended workflow:
-//   1. Replace the old externalFormImport.gs content with this version.
-//   2. Reload the spreadsheet.
-//   3. Run External Form Import > 00. Authorize External Import Access.
-//   4. Run External Form Import > 02. Sync External Form Responses.
-//   5. Keep the 5-minute trigger installed for reconciliation.
-//
 // ============================================================================
 
 
@@ -3977,9 +3970,15 @@ const MDMA_EXTERNAL_IMPORT = {
   // This must remain text. Otherwise 0812... becomes 812...
   PHONE_COL: 6,
 
+  // Target-side local override columns.
+  // Source may seed these on first import, but existing Form responses 1 edits
+  // must persist and must never be overwritten by source sync.
+  // D = student number, E = name, F = phone number, G = test ID/alternative test ID.
+  LOCAL_EDITABLE_RAW_COLS: [4, 5, 6, 7],
+
   // Other raw columns that are safer as plain text.
-  // D is often NIM/NIK; F is phone/test contact.
-  TEXT_SAFE_RAW_COLS: [4, 6],
+  // D is often NIM/NIK; F is phone/test contact; G can contain alternative test IDs.
+  TEXT_SAFE_RAW_COLS: [4, 5, 6, 7],
 
   // Registry in 00. MASTER-DATA begins at E.
   REGISTRY_HEADER_ROW: 1,
@@ -4086,6 +4085,7 @@ function mdmaSyncExternalFormResponsesWithUi() {
       [
         `Imported rows: ${result.imported}`,
         `Updated rows: ${result.updated}`,
+        `Metadata repaired: ${result.repaired || 0}`,
         `Unchanged rows checked: ${result.unchanged}`,
         "",
         ...result.messages
@@ -4172,7 +4172,7 @@ function mdmaSeedExternalFormRegistry() {
  *    Runs when any linked form submits into this spreadsheet.
  *
  * 2. time-driven trigger:
- *    Runs every 5 minutes.
+ *    Runs every 15 minutes.
  *    This is the reconciliation safety net.
  *
  * Why both?
@@ -4202,12 +4202,12 @@ function mdmaInstallExternalImportTriggers() {
 
   ScriptApp.newTrigger("mdmaSyncExternalFormResponsesTrigger_")
     .timeBased()
-    .everyMinutes(5)
+    .everyMinutes(15)
     .create();
 
   SpreadsheetApp.getUi().alert(
     "External Import Triggers Installed ✅",
-    "Importer will run on form submit and every 5 minutes as reconciliation backup.",
+    "Importer will run on form submit and every 15 minutes as reconciliation backup.",
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 }
@@ -4319,6 +4319,7 @@ function mdmaSyncExternalFormResponses_() {
       return {
         imported: 0,
         updated: 0,
+        repaired: 0,
         unchanged: 0,
         messages: [
           "No registered source sheets found.",
@@ -4339,6 +4340,7 @@ function mdmaSyncExternalFormResponses_() {
       statsByRegistryRow[config.registryRow] = {
         imported: 0,
         updated: 0,
+        repaired: 0,
         unchanged: 0
       };
 
@@ -4419,32 +4421,61 @@ function mdmaSyncExternalFormResponses_() {
           return;
         }
 
-        const sourceHash = mdmaHashRow_(sourceRawRow);
+        const sourceHash = mdmaHashSyncOwnedRawRow_(sourceRawRow);
 
         const marker = mdmaReadMarkerRow_(markerValues[index], markerCols);
         const stableImportId = mdmaStableImportId_(ss, source, sourceRowNumber);
-        const legacyImportId = marker.importId || "";
+        let importIdChain = mdmaCanonicalImportIdChain_(marker.importId, stableImportId);
 
         const targetRow = mdmaResolveTargetRow_(
           target,
           targetIndexes,
           config.sourceSheetName,
           sourceRowNumber,
-          stableImportId,
-          legacyImportId,
+          importIdChain,
           marker.targetRow
         );
 
         if (targetRow) {
-          const oldHash = marker.importHash || mdmaGetTargetHash_(target, targetMetaCols, targetRow);
+          const targetMetaHash = mdmaGetTargetHash_(target, targetMetaCols, targetRow);
+          const targetActualHash = mdmaGetTargetActualHash_(target, targetRow);
 
-          if (oldHash === sourceHash) {
+          importIdChain = mdmaMaybeAppendEditImportId_(
+            importIdChain,
+            stableImportId,
+            sourceHash,
+            [marker.importHash, targetMetaHash, targetActualHash]
+          );
+
+          const targetImportIdChain = mdmaGetTargetImportIdChain_(target, targetMetaCols, targetRow);
+          const needsMetadataRepair = (
+            !mdmaSameImportIdChain_(marker.importId, importIdChain) ||
+            !mdmaSameImportIdChain_(targetImportIdChain, importIdChain) ||
+            Number(marker.targetRow || 0) !== Number(targetRow) ||
+            String(marker.importHash || "").trim() !== sourceHash ||
+            String(targetMetaHash || "").trim() !== sourceHash
+          );
+
+          if (targetActualHash === sourceHash) {
             unchanged++;
             statsByRegistryRow[config.registryRow].unchanged++;
 
-            // Repair marker/import ID if needed, without touching target raw data.
-            // Disabled during unchanged sync so the 5-minute trigger does not write
-            // source markers repeatedly when nothing actually changed.
+            if (needsMetadataRepair) {
+              updateEntries.push({
+                mode: "repairMetadataOnly",
+                sourceSheetName: config.sourceSheetName,
+                sourceSheet: source,
+                sourceRowNumber,
+                markerCols,
+                targetRow,
+                sourceHash,
+                importIdChain,
+                registryRow: config.registryRow
+              });
+
+              statsByRegistryRow[config.registryRow].repaired++;
+            }
+
             return;
           }
 
@@ -4457,8 +4488,7 @@ function mdmaSyncExternalFormResponses_() {
             targetRow,
             sourceRawRow,
             sourceHash,
-            stableImportId,
-            legacyImportId,
+            importIdChain,
             registryRow: config.registryRow
           });
 
@@ -4473,8 +4503,7 @@ function mdmaSyncExternalFormResponses_() {
           markerCols,
           sourceRawRow,
           sourceHash,
-          stableImportId,
-          legacyImportId,
+          importIdChain,
           registryRow: config.registryRow
         });
 
@@ -4486,33 +4515,40 @@ function mdmaSyncExternalFormResponses_() {
     // APPLY UPDATES FIRST
     // ------------------------------------------------------------------------
     let updated = 0;
+    let repaired = 0;
 
     updateEntries.forEach(entry => {
-      if (entry.mode === "repairMarkerOnly") {
+      if (entry.mode === "repairMetadataOnly") {
+        mdmaWriteTargetMeta_(
+          target,
+          targetMetaCols,
+          entry.targetRow,
+          entry.sourceSheetName,
+          entry.sourceRowNumber,
+          entry.importIdChain,
+          now,
+          entry.sourceHash
+        );
+
         mdmaWriteSourceMarker_(
           entry.sourceSheet,
           entry.sourceRowNumber,
           entry.markerCols,
           true,
-          entry.stableImportId,
+          entry.importIdChain,
           now,
           entry.targetRow,
           entry.sourceHash
         );
+
+        repaired++;
         return;
       }
 
       // Preserve phone/NIM text format before writing.
       mdmaPrepareRawTargetRowForWrite_(target, entry.targetRow, 1);
 
-      target
-        .getRange(
-          entry.targetRow,
-          MDMA_EXTERNAL_IMPORT.RAW_START_COL,
-          1,
-          MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT
-        )
-        .setValues([entry.sourceRawRow]);
+      mdmaWriteSourceOwnedRawColumns_(target, entry.targetRow, entry.sourceRawRow);
 
       mdmaWriteTargetMeta_(
         target,
@@ -4520,7 +4556,7 @@ function mdmaSyncExternalFormResponses_() {
         entry.targetRow,
         entry.sourceSheetName,
         entry.sourceRowNumber,
-        entry.stableImportId,
+        entry.importIdChain,
         now,
         entry.sourceHash
       );
@@ -4530,7 +4566,7 @@ function mdmaSyncExternalFormResponses_() {
         entry.sourceRowNumber,
         entry.markerCols,
         true,
-        entry.stableImportId,
+        entry.importIdChain,
         now,
         entry.targetRow,
         entry.sourceHash
@@ -4584,7 +4620,7 @@ function mdmaSyncExternalFormResponses_() {
           appendEntries.map((entry, index) => [
             entry.sourceSheetName,
             entry.sourceRowNumber,
-            entry.stableImportId,
+            entry.importIdChain,
             now,
             entry.sourceHash,
             now
@@ -4599,7 +4635,7 @@ function mdmaSyncExternalFormResponses_() {
           entry.sourceRowNumber,
           entry.markerCols,
           true,
-          entry.stableImportId,
+          entry.importIdChain,
           now,
           targetRow,
           entry.sourceHash
@@ -4614,12 +4650,12 @@ function mdmaSyncExternalFormResponses_() {
     // ------------------------------------------------------------------------
     Object.entries(statsByRegistryRow).forEach(([registryRowText, stat]) => {
       const registryRow = Number(registryRowText);
-      const totalTouched = stat.imported + stat.updated;
+      const totalTouched = stat.imported + stat.updated + stat.repaired;
 
       mdmaWriteRegistryStatus_(
         master,
         registryRow,
-        `Synced: +${stat.imported}, updated ${stat.updated}, unchanged ${stat.unchanged}`,
+        `Synced: +${stat.imported}, updated ${stat.updated}, repaired ${stat.repaired}, unchanged ${stat.unchanged}`,
         totalTouched,
         lastInsertedRow || ""
       );
@@ -4639,6 +4675,10 @@ function mdmaSyncExternalFormResponses_() {
       updateEntries.filter(entry => entry.mode === "updateTarget"),
       "sourceSheetName"
     );
+    const repairedBySource = mdmaCountBy_(
+      updateEntries.filter(entry => entry.mode === "repairMetadataOnly"),
+      "sourceSheetName"
+    );
 
     Object.entries(importedBySource).forEach(([sourceName, count]) => {
       messages.push(`${sourceName}: imported ${count} new row(s).`);
@@ -4646,6 +4686,10 @@ function mdmaSyncExternalFormResponses_() {
 
     Object.entries(updatedBySource).forEach(([sourceName, count]) => {
       messages.push(`${sourceName}: updated ${count} existing target row(s).`);
+    });
+
+    Object.entries(repairedBySource).forEach(([sourceName, count]) => {
+      messages.push(`${sourceName}: repaired ${count} metadata/ID link(s).`);
     });
 
     if (firstInsertedRow && lastInsertedRow) {
@@ -4659,6 +4703,7 @@ function mdmaSyncExternalFormResponses_() {
     return {
       imported,
       updated,
+      repaired,
       unchanged,
       messages
     };
@@ -4789,7 +4834,7 @@ function mdmaBuildTargetIndexes_(target, targetMetaCols) {
   const indexes = {
     byImportId: new Map(),
     bySourceKey: new Map(),
-    byTargetRow: new Set()
+    byTargetRow: new Map()
   };
 
   if (numRows <= 0) return indexes;
@@ -4803,17 +4848,26 @@ function mdmaBuildTargetIndexes_(target, targetMetaCols) {
     const targetRow = i + 2;
     const sourceSheetName = String(row[0] || "").trim();
     const sourceRow = String(row[1] || "").trim();
-    const importId = String(row[2] || "").trim();
+    const importIds = mdmaParseImportIds_(row[2]);
+    const sourceKey = sourceSheetName && sourceRow ? `${sourceSheetName}::${sourceRow}` : "";
 
-    if (importId) {
-      indexes.byImportId.set(importId, targetRow);
+    importIds.forEach(importId => {
+      // Keep the first row for an ID. If old duplicates already exist, this
+      // makes the original row the canonical one instead of letting later
+      // duplicate rows hijack future updates.
+      if (!indexes.byImportId.has(importId)) {
+        indexes.byImportId.set(importId, targetRow);
+      }
+    });
+
+    if (sourceKey && !indexes.bySourceKey.has(sourceKey)) {
+      indexes.bySourceKey.set(sourceKey, targetRow);
     }
 
-    if (sourceSheetName && sourceRow) {
-      indexes.bySourceKey.set(`${sourceSheetName}::${sourceRow}`, targetRow);
-    }
-
-    indexes.byTargetRow.add(targetRow);
+    indexes.byTargetRow.set(targetRow, {
+      sourceKey,
+      importIds
+    });
   });
 
   return indexes;
@@ -4834,28 +4888,32 @@ function mdmaResolveTargetRow_(
   targetIndexes,
   sourceSheetName,
   sourceRowNumber,
-  stableImportId,
-  legacyImportId,
+  importIdChain,
   markerTargetRow
 ) {
   const markerRow = Number(markerTargetRow || 0);
-
-  if (markerRow >= 2 && markerRow <= target.getMaxRows()) {
-    return markerRow;
-  }
-
   const sourceKey = `${sourceSheetName}::${sourceRowNumber}`;
+  const importIds = mdmaParseImportIds_(importIdChain);
+
+  // Trust MDMA_TARGET_ROW only when it still points to matching target
+  // metadata. If old metadata is blank, accept it as a legacy fallback and
+  // repair metadata immediately after resolution.
+  if (markerRow >= 2 && markerRow <= target.getLastRow()) {
+    const targetInfo = targetIndexes.byTargetRow.get(markerRow);
+
+    if (mdmaTargetInfoMatches_(targetInfo, sourceKey, importIds)) {
+      return markerRow;
+    }
+  }
 
   if (targetIndexes.bySourceKey.has(sourceKey)) {
     return targetIndexes.bySourceKey.get(sourceKey);
   }
 
-  if (targetIndexes.byImportId.has(stableImportId)) {
-    return targetIndexes.byImportId.get(stableImportId);
-  }
-
-  if (legacyImportId && targetIndexes.byImportId.has(legacyImportId)) {
-    return targetIndexes.byImportId.get(legacyImportId);
+  for (const importId of importIds) {
+    if (targetIndexes.byImportId.has(importId)) {
+      return targetIndexes.byImportId.get(importId);
+    }
   }
 
   return null;
@@ -4868,6 +4926,117 @@ function mdmaStableImportId_(ss, sourceSheet, sourceRowNumber) {
     sourceSheet.getSheetId(),
     sourceRowNumber
   ].join("::");
+}
+
+
+function mdmaParseImportIds_(value) {
+  return String(value || "")
+    .split(";")
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+
+function mdmaUniqueImportIds_(ids) {
+  const seen = new Set();
+  const output = [];
+
+  ids.forEach(id => {
+    const text = String(id || "").trim();
+    if (!text || seen.has(text)) return;
+
+    seen.add(text);
+    output.push(text);
+  });
+
+  return output;
+}
+
+
+function mdmaImportIdChainToText_(ids) {
+  return mdmaUniqueImportIds_(ids).join(";");
+}
+
+
+function mdmaCanonicalImportIdChain_(existingChain, stableImportId) {
+  const existingIds = mdmaParseImportIds_(existingChain);
+  return mdmaImportIdChainToText_([stableImportId, ...existingIds]);
+}
+
+
+function mdmaMaybeAppendEditImportId_(importIdChain, stableImportId, sourceHash, previousHashes) {
+  const changed = (previousHashes || []).some(hash => {
+    const text = String(hash || "").trim();
+    return text && text !== sourceHash;
+  });
+
+  if (!changed) {
+    return mdmaImportIdChainToText_(mdmaParseImportIds_(importIdChain));
+  }
+
+  const editImportId = mdmaEditImportId_(stableImportId, sourceHash);
+  return mdmaImportIdChainToText_([
+    ...mdmaParseImportIds_(importIdChain),
+    editImportId
+  ]);
+}
+
+
+function mdmaEditImportId_(stableImportId, sourceHash) {
+  return `${stableImportId}::edit::${String(sourceHash || "").slice(0, 16)}`;
+}
+
+
+function mdmaSameImportIdChain_(a, b) {
+  return mdmaImportIdChainToText_(mdmaParseImportIds_(a)) ===
+    mdmaImportIdChainToText_(mdmaParseImportIds_(b));
+}
+
+
+function mdmaTargetInfoMatches_(targetInfo, sourceKey, importIds) {
+  if (!targetInfo) {
+    return false;
+  }
+
+  const hasMetadata = Boolean(targetInfo.sourceKey || (targetInfo.importIds && targetInfo.importIds.length));
+
+  if (!hasMetadata) {
+    return true;
+  }
+
+  if (targetInfo.sourceKey && targetInfo.sourceKey === sourceKey) {
+    return true;
+  }
+
+  const targetIds = new Set(targetInfo.importIds || []);
+  return importIds.some(id => targetIds.has(id));
+}
+
+
+function mdmaGetTargetImportIdChain_(target, targetMetaCols, targetRow) {
+  const col = targetMetaCols["MDMA_IMPORT_ID"];
+  if (!col) return "";
+
+  return String(target.getRange(targetRow, col).getValue() || "").trim();
+}
+
+
+function mdmaGetTargetActualHash_(target, targetRow) {
+  const values = target
+    .getRange(targetRow, MDMA_EXTERNAL_IMPORT.RAW_START_COL, 1, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT)
+    .getValues()[0];
+
+  const displayValues = target
+    .getRange(targetRow, MDMA_EXTERNAL_IMPORT.RAW_START_COL, 1, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT)
+    .getDisplayValues()[0];
+
+  const normalized = mdmaNormalizeRawRowForWrite_(values, displayValues);
+
+  if (!mdmaRowHasData_(normalized)) {
+    return "";
+  }
+
+  return mdmaHashSyncOwnedRawRow_(normalized);
 }
 
 
@@ -4915,6 +5084,54 @@ function mdmaPrepareRawTargetRowForWrite_(target, startRow, numRows) {
       .getRange(startRow, col, numRows, 1)
       .setNumberFormat("@");
   });
+}
+
+
+/**
+ * Writes only source-owned raw columns into Form responses 1.
+ *
+ * Local editable columns D:G are skipped:
+ *   D = student number
+ *   E = name
+ *   F = phone number
+ *   G = student test ID / alternative test ID
+ *
+ * New imports still write the whole A:U row during append.
+ * This helper is only used when updating an existing imported target row.
+ */
+function mdmaWriteSourceOwnedRawColumns_(target, targetRow, sourceRawRow) {
+  const row = mdmaPadOrTrimRow_(sourceRawRow, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT);
+
+  let blockStartCol = null;
+  let blockValues = [];
+
+  const flushBlock = () => {
+    if (blockStartCol === null || blockValues.length === 0) {
+      return;
+    }
+
+    target
+      .getRange(targetRow, blockStartCol, 1, blockValues.length)
+      .setValues([blockValues]);
+
+    blockStartCol = null;
+    blockValues = [];
+  };
+
+  for (let col = 1; col <= MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT; col++) {
+    if (mdmaIsLocalEditableRawCol_(col)) {
+      flushBlock();
+      continue;
+    }
+
+    if (blockStartCol === null) {
+      blockStartCol = col;
+    }
+
+    blockValues.push(row[col - 1]);
+  }
+
+  flushBlock();
 }
 
 
@@ -5224,6 +5441,11 @@ function mdmaRowHasData_(row) {
 }
 
 
+function mdmaIsLocalEditableRawCol_(colNumber) {
+  return MDMA_EXTERNAL_IMPORT.LOCAL_EDITABLE_RAW_COLS.includes(colNumber);
+}
+
+
 /**
  * Accepts TRUE/Yes/1/etc. from the registry.
  */
@@ -5307,6 +5529,28 @@ function mdmaHashRow_(row) {
       return ("0" + value.toString(16)).slice(-2);
     })
     .join("");
+}
+
+
+/**
+ * Creates a SHA-256 hash of only the source-owned raw columns.
+ *
+ * Local editable columns D:G are deliberately ignored so manual edits in
+ * Form responses 1 do not trigger source sync updates and do not get reverted.
+ */
+function mdmaHashSyncOwnedRawRow_(row) {
+  const normalized = mdmaPadOrTrimRow_(row, MDMA_EXTERNAL_IMPORT.RAW_COL_COUNT)
+    .map((value, index) => {
+      const colNumber = index + 1;
+
+      if (mdmaIsLocalEditableRawCol_(colNumber)) {
+        return "";
+      }
+
+      return value;
+    });
+
+  return mdmaHashRow_(normalized);
 }
 
 
